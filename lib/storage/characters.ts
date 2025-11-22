@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { Character } from '@/types';
+import { Character, CreateCharacterInput, UpdateCharacterInput } from '@/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data', 'characters');
 
@@ -27,16 +27,14 @@ export async function getAllCharacters(): Promise<Character[]> {
     const characters = await Promise.all(
       jsonFiles.map(async (file) => {
         const content = await fs.readFile(path.join(DATA_DIR, file), 'utf-8');
-        const data = JSON.parse(content);
-        return {
-          ...data,
-          createdAt: new Date(data.createdAt),
-          updatedAt: new Date(data.updatedAt),
-        } as Character;
+        return JSON.parse(content) as Character;
       })
     );
     
-    return characters.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // 按创建时间降序排序
+    return characters.sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   } catch (error) {
     console.error('Error reading characters:', error);
     return [];
@@ -51,13 +49,7 @@ export async function getCharacterById(id: string): Promise<Character | null> {
     await ensureDataDir();
     const filePath = path.join(DATA_DIR, `${id}.json`);
     const content = await fs.readFile(filePath, 'utf-8');
-    const data = JSON.parse(content);
-    
-    return {
-      ...data,
-      createdAt: new Date(data.createdAt),
-      updatedAt: new Date(data.updatedAt),
-    } as Character;
+    return JSON.parse(content) as Character;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;
@@ -71,12 +63,12 @@ export async function getCharacterById(id: string): Promise<Character | null> {
  * 创建新角色
  */
 export async function createCharacter(
-  data: Omit<Character, 'id' | 'createdAt' | 'updatedAt'>
+  data: CreateCharacterInput
 ): Promise<Character> {
   try {
     await ensureDataDir();
     
-    const now = new Date();
+    const now = new Date().toISOString();
     const character: Character = {
       id: crypto.randomUUID(),
       ...data,
@@ -85,13 +77,7 @@ export async function createCharacter(
     };
     
     const filePath = path.join(DATA_DIR, `${character.id}.json`);
-    const jsonData = {
-      ...character,
-      createdAt: character.createdAt.toISOString(),
-      updatedAt: character.updatedAt.toISOString(),
-    };
-    
-    await fs.writeFile(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
+    await fs.writeFile(filePath, JSON.stringify(character, null, 2), 'utf-8');
     
     return character;
   } catch (error) {
@@ -105,7 +91,7 @@ export async function createCharacter(
  */
 export async function updateCharacter(
   id: string,
-  data: Partial<Omit<Character, 'id' | 'createdAt' | 'updatedAt'>>
+  data: UpdateCharacterInput
 ): Promise<Character | null> {
   try {
     await ensureDataDir();
@@ -118,17 +104,11 @@ export async function updateCharacter(
     const updated: Character = {
       ...existing,
       ...data,
-      updatedAt: new Date(),
+      updatedAt: new Date().toISOString(),
     };
     
     const filePath = path.join(DATA_DIR, `${id}.json`);
-    const jsonData = {
-      ...updated,
-      createdAt: updated.createdAt.toISOString(),
-      updatedAt: updated.updatedAt.toISOString(),
-    };
-    
-    await fs.writeFile(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
+    await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');
     
     return updated;
   } catch (error) {

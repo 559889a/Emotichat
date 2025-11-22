@@ -28,16 +28,8 @@ export interface Conversation {
   updatedAt: Date;
 }
 
-// 角色相关
-export interface Character {
-  id: string;
-  name: string;
-  avatar?: string;
-  description: string;
-  systemPrompt: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// 角色相关 - 导出详细的角色类型定义
+export type { Character, CreateCharacterInput, UpdateCharacterInput } from './character';
 
 // 记忆相关
 export interface Memory {
