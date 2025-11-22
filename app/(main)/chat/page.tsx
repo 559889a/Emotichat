@@ -1,65 +1,187 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { MessageSquare, Sparkles } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useConversationStore } from "@/stores/conversation"
+import { useConversations } from "@/hooks/useConversations"
+import { useCharacters } from "@/hooks/useCharacters"
+import { useMessages } from "@/hooks/useMessages"
+import { NewConversationDialog } from "@/components/chat/new-conversation-dialog"
+import { WelcomeScreen } from "@/components/chat/welcome-screen"
+import { MessageList } from "@/components/chat/message-list"
+import { ChatInput } from "@/components/chat/chat-input"
+import type { ConversationSummary } from "@/types/conversation"
+import type { Character } from "@/types/character"
 
 export default function ChatPage() {
-  return (
-    <div className="flex h-full items-center justify-center p-4 md:p-8">
-      <div className="flex flex-col items-center gap-6 md:gap-8 text-center max-w-2xl w-full px-4">
-        {/* 图标 */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full blur-2xl opacity-20"></div>
-          <div className="relative bg-gradient-to-br from-pink-500 to-purple-500 p-6 rounded-full">
-            <MessageSquare className="h-16 w-16 text-white" />
-          </div>
-        </div>
+  const searchParams = useSearchParams()
+  const conversationId = searchParams.get('id')
+  
+  const { setCurrentConversation } = useConversationStore()
+  const { conversations, loading: conversationsLoading, refetch: refetchConversations } = useConversations()
+  const { characters } = useCharacters()
+  
+  const [currentConversation, setCurrentConv] = useState<ConversationSummary | null>(null)
+  const [currentCharacter, setCurrentChar] = useState<Character | null>(null)
 
-        {/* 标题 */}
-        <div className="space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
-            欢迎来到 EmotiChat
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            您的情感陪护AI伴侣，随时倾听、理解和支持您
+  // 使用消息管理 Hook
+  const {
+    messages,
+    loading: messagesLoading,
+    error: messagesError,
+    sendMessage,
+    retryMessage,
+    fetchMessages,
+    stop,
+  } = useMessages({
+    conversationId,
+    autoFetch: true,
+  })
+
+  useEffect(() => {
+    if (conversationId) {
+      // 强制重新加载消息
+      fetchMessages(conversationId)
+      
+      setCurrentConversation(conversationId)
+      const conv = conversations.find(c => c.id === conversationId)
+      
+      // 如果当前对话不在列表中（可能是新创建的），刷新列表
+      if (!conv && !conversationsLoading) {
+        refetchConversations()
+      }
+      
+      setCurrentConv(conv || null)
+      
+      if (conv) {
+        const char = characters.find(c => c.id === conv.characterId)
+        setCurrentChar(char || null)
+      }
+    } else {
+      setCurrentConversation(null)
+      setCurrentConv(null)
+      setCurrentChar(null)
+    }
+  }, [conversationId, conversations, characters, setCurrentConversation, fetchMessages, conversationsLoading, refetchConversations])
+
+  // 加载状态
+  if (conversationsLoading && !currentConversation && conversationId) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  // 如果没有选中对话，显示主欢迎页面
+  if (!conversationId || !currentConversation) {
+    return (
+      <div className="flex h-full items-center justify-center p-4 md:p-8">
+        <div className="flex flex-col items-center gap-6 md:gap-8 text-center max-w-2xl w-full px-4">
+          {/* 图标 */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full blur-2xl opacity-20"></div>
+            <div className="relative bg-gradient-to-br from-pink-500 to-purple-500 p-6 rounded-full">
+              <MessageSquare className="h-16 w-16 text-white" />
+            </div>
+          </div>
+
+          {/* 标题 */}
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+              欢迎来到 EmotiChat
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              您的情感陪护AI伴侣，随时倾听、理解和支持您
+            </p>
+          </div>
+
+          {/* 功能特点 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mt-4">
+            <div className="p-4 rounded-lg border bg-card">
+              <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
+              <h3 className="font-semibold mb-1">智能对话</h3>
+              <p className="text-sm text-muted-foreground">
+                基于先进AI技术的自然对话体验
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border bg-card">
+              <MessageSquare className="h-6 w-6 mb-2 text-purple-500" />
+              <h3 className="font-semibold mb-1">情感支持</h3>
+              <p className="text-sm text-muted-foreground">
+                理解您的情绪，提供温暖的陪伴
+              </p>
+            </div>
+            <div className="p-4 rounded-lg border bg-card">
+              <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
+              <h3 className="font-semibold mb-1">个性化体验</h3>
+              <p className="text-sm text-muted-foreground">
+                根据您的喜好定制对话风格
+              </p>
+            </div>
+          </div>
+
+          {/* 开始按钮 */}
+          <NewConversationDialog
+            variant="default"
+            size="lg"
+            className="mt-4 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+          />
+
+          <p className="text-sm text-muted-foreground mt-4">
+            从左侧选择或创建一个对话开始聊天
           </p>
         </div>
+      </div>
+    )
+  }
 
-        {/* 功能特点 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mt-4">
-          <div className="p-4 rounded-lg border bg-card">
-            <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
-            <h3 className="font-semibold mb-1">智能对话</h3>
-            <p className="text-sm text-muted-foreground">
-              基于先进AI技术的自然对话体验
-            </p>
-          </div>
-          <div className="p-4 rounded-lg border bg-card">
-            <MessageSquare className="h-6 w-6 mb-2 text-purple-500" />
-            <h3 className="font-semibold mb-1">情感支持</h3>
-            <p className="text-sm text-muted-foreground">
-              理解您的情绪，提供温暖的陪伴
-            </p>
-          </div>
-          <div className="p-4 rounded-lg border bg-card">
-            <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
-            <h3 className="font-semibold mb-1">个性化体验</h3>
-            <p className="text-sm text-muted-foreground">
-              根据您的喜好定制对话风格
-            </p>
-          </div>
+  // 获取角色头像首字母
+  const characterAvatar = currentCharacter?.name.charAt(0).toUpperCase() || 'AI'
+  const hasMessages = messages.length > 0
+
+  // 显示对话界面
+  return (
+    <div className="flex flex-col h-full">
+      {/* 消息列表或欢迎屏幕 */}
+      {hasMessages ? (
+        <MessageList
+          messages={messages}
+          characterName={currentCharacter?.name}
+          characterAvatar={characterAvatar}
+          loading={messagesLoading}
+          onRetry={retryMessage}
+        />
+      ) : (
+        !messagesLoading && currentCharacter && (
+          <WelcomeScreen
+            characterName={currentCharacter.name}
+            characterAvatar={characterAvatar}
+            characterDescription={currentCharacter.description}
+          />
+        )
+      )}
+
+      {/* 错误提示 */}
+      {messagesError && (
+        <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20">
+          <p className="text-sm text-destructive text-center">
+            {messagesError}
+          </p>
         </div>
+      )}
 
-        {/* 开始按钮 */}
-        <Button 
-          size="lg" 
-          className="mt-4 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-        >
-          <MessageSquare className="mr-2 h-5 w-5" />
-          开始聊天
-        </Button>
-
-        <p className="text-sm text-muted-foreground mt-4">
-          聊天功能正在开发中，敬请期待...
-        </p>
+      {/* 底部输入框 */}
+      <div className="border-t bg-background p-4">
+        <div className="max-w-4xl mx-auto">
+          <ChatInput
+            onSend={sendMessage}
+            disabled={messagesLoading}
+            onStop={stop}
+            placeholder={`向 ${currentCharacter?.name || 'AI'} 发送消息...`}
+          />
+        </div>
       </div>
     </div>
   )

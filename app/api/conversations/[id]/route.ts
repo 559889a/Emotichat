@@ -1,0 +1,142 @@
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  getConversationById,
+  updateConversation,
+  deleteConversation,
+  getMessages,
+} from '@/lib/storage/conversations';
+
+/**
+ * GET /api/conversations/[id]
+ * 获取单个对话详情（包含消息）
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const conversation = await getConversationById(id);
+    
+    if (!conversation) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '对话不存在',
+        },
+        { status: 404 }
+      );
+    }
+    
+    // 获取对话的所有消息
+    const messages = await getMessages(id);
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...conversation,
+        messages,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to get conversation:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: '获取对话失败',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/conversations/[id]
+ * 更新对话标题
+ */
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    
+    // 验证 title 字段
+    if (body.title === undefined) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '请提供要更新的标题',
+        },
+        { status: 400 }
+      );
+    }
+    
+    if (typeof body.title !== 'string' || body.title.trim() === '') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '对话标题不能为空',
+        },
+        { status: 400 }
+      );
+    }
+    
+    const conversation = await updateConversation(id, {
+      title: body.title.trim(),
+    });
+    
+    return NextResponse.json({
+      success: true,
+      data: conversation,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '对话不存在',
+        },
+        { status: 404 }
+      );
+    }
+    
+    console.error('Failed to update conversation:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: '更新对话失败',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/conversations/[id]
+ * 删除对话
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await deleteConversation(id);
+    
+    return NextResponse.json({
+      success: true,
+      data: { id },
+    });
+  } catch (error) {
+    console.error('Failed to delete conversation:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: '删除对话失败',
+      },
+      { status: 500 }
+    );
+  }
+}

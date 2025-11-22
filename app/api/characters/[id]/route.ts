@@ -8,10 +8,11 @@ import { UpdateCharacterInput } from '@/types';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const character = await getCharacterById(params.id);
+    const { id } = await params;
+    const character = await getCharacterById(id);
     
     if (!character) {
       return NextResponse.json(
@@ -45,9 +46,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     
     // 验证可选字段
@@ -128,7 +130,7 @@ export async function PUT(
     if (body.defaultModel !== undefined) updateData.defaultModel = body.defaultModel;
     if (body.temperature !== undefined) updateData.temperature = body.temperature;
     
-    const character = await updateCharacter(params.id, updateData);
+    const character = await updateCharacter(id, updateData);
     
     if (!character) {
       return NextResponse.json(
@@ -162,10 +164,11 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const deleted = await deleteCharacter(params.id);
+    const { id } = await params;
+    const deleted = await deleteCharacter(id);
     
     if (!deleted) {
       return NextResponse.json(
@@ -179,7 +182,7 @@ export async function DELETE(
     
     return NextResponse.json({
       success: true,
-      data: { id: params.id },
+      data: { id },
     });
   } catch (error) {
     console.error('Failed to delete character:', error);

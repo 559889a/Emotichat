@@ -1,14 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { MessageSquare, Users, Settings, Heart, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ThemeToggle } from "./theme-toggle"
 import { useUIPreferences } from "@/stores/uiPreferences"
+import { useConversationStore } from "@/stores/conversation"
+import { useConversations } from "@/hooks/useConversations"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SheetClose } from "@/components/ui/sheet"
+import { Separator } from "@/components/ui/separator"
+import { ConversationList } from "@/components/chat/conversation-list"
+import { NewConversationDialog } from "@/components/chat/new-conversation-dialog"
 
 const navigation = [
   {
@@ -34,7 +39,24 @@ interface SidebarProps {
 
 export function Sidebar({ isInSheet = false }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { sidebarCollapsed, toggleSidebar } = useUIPreferences()
+  const { currentConversationId, setCurrentConversation } = useConversationStore()
+  const { conversations, deleteConversation, refetch } = useConversations()
+
+  const handleSelectConversation = (id: string) => {
+    setCurrentConversation(id)
+    router.push(`/chat?id=${id}`)
+  }
+
+  const handleDeleteConversation = async (id: string) => {
+    await deleteConversation(id)
+    // 如果删除的是当前对话，清除当前对话
+    if (id === currentConversationId) {
+      setCurrentConversation(null)
+      router.push('/chat')
+    }
+  }
 
   return (
     <div
@@ -122,6 +144,27 @@ export function Sidebar({ isInSheet = false }: SidebarProps) {
           })}
         </TooltipProvider>
       </nav>
+
+      {/* 分隔线 */}
+      {!sidebarCollapsed && <Separator />}
+
+      {/* 最近对话 */}
+      {!sidebarCollapsed && (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
+            <span className="text-xs font-medium text-muted-foreground">最近对话</span>
+            <NewConversationDialog variant="ghost" size="sm" onSuccess={refetch} />
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ConversationList
+              conversations={conversations}
+              currentId={currentConversationId}
+              onSelect={handleSelectConversation}
+              onDelete={handleDeleteConversation}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 底部：主题切换 */}
       <div className="border-t p-4">

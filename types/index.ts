@@ -9,27 +9,17 @@ export interface User {
   createdAt: Date;
 }
 
-// 消息相关
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  createdAt: Date;
-}
-
-// 会话相关
-export interface Conversation {
-  id: string;
-  userId: string;
-  title: string;
-  characterId?: string;
-  messages: Message[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // 角色相关 - 导出详细的角色类型定义
 export type { Character, CreateCharacterInput, UpdateCharacterInput } from './character';
+
+// 对话和消息相关 - 导出详细的对话类型定义
+export type {
+  MessageRole,
+  Message,
+  Conversation,
+  CreateConversationInput,
+  ConversationSummary
+} from './conversation';
 
 // 记忆相关
 export interface Memory {

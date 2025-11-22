@@ -71,7 +71,7 @@ export function useCharacters(): UseCharactersReturn {
   const updateCharacter = useCallback(async (id: string, input: UpdateCharacterInput): Promise<Character | null> => {
     try {
       const res = await fetch(`/api/characters/${id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
