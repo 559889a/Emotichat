@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 本地数据目录（包含用户隐私数据，不提交到 Git）
+/data/**
+!/data/**/.gitkeep

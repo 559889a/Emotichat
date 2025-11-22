@@ -36,6 +36,14 @@ export interface Character {
   description: string;
   systemPrompt: string;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+// 记忆相关
+export interface Memory {
+  filename: string;
+  content: string;
+  createdAt: Date;
 }
 
 // AI 模型配置
@@ -44,4 +52,21 @@ export interface ModelConfig {
   model: string;
   apiKey?: string;
   baseUrl?: string;
+}
+
+// 应用配置
+export interface AppConfig {
+  modelProvider: 'openai' | 'gemini' | 'claude' | 'xai';
+  modelName: string;
+  apiKeys: {
+    openai: string;
+    gemini: string;
+    claude: string;
+    xai?: string;
+  };
+  customEndpoints: {
+    openai: string;
+    gemini: string;
+    xai: string;
+  };
 }
