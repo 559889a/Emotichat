@@ -6,13 +6,14 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
+  SheetTitle,
 } from "@/components/ui/sheet"
 import { Sidebar } from "./sidebar"
 
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-4">
+      <div className="flex h-16 items-center justify-between px-4 gap-4">
         {/* 移动端菜单按钮 */}
         <Sheet>
           <SheetTrigger asChild>
@@ -21,8 +22,9 @@ export function Header() {
               <span className="sr-only">打开菜单</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-60 p-0">
-            <Sidebar />
+          <SheetContent side="left" className="w-60 p-0" hideCloseButton>
+            <SheetTitle className="sr-only">导航菜单</SheetTitle>
+            <Sidebar isInSheet />
           </SheetContent>
         </Sheet>
 

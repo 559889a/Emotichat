@@ -8,13 +8,13 @@ export default function MainLayout({
 }) {
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* 桌面端侧边栏 - 固定宽度 240px */}
-      <aside className="hidden md:flex md:w-60 md:flex-col">
+      {/* 桌面端侧边栏 */}
+      <aside className="hidden md:flex md:flex-col">
         <Sidebar />
       </aside>
 
-      {/* 主内容区域 */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* 主内容区域 - 移动端占满全宽，桌面端占据剩余空间 */}
+      <div className="flex flex-1 flex-col overflow-hidden w-full md:w-auto">
         {/* 移动端 Header */}
         <Header />
 

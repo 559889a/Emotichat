@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 
 export default function CharactersPage() {
   return (
-    <div className="flex h-full items-center justify-center p-8">
-      <div className="flex flex-col items-center gap-8 text-center max-w-3xl">
+    <div className="flex h-full items-center justify-center p-4 md:p-8">
+      <div className="flex flex-col items-center gap-6 md:gap-8 text-center max-w-3xl w-full px-4">
         {/* 图标 */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full blur-2xl opacity-20"></div>

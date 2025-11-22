@@ -8,6 +8,7 @@ import { ThemeToggle } from "./theme-toggle"
 import { useUIPreferences } from "@/stores/uiPreferences"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { SheetClose } from "@/components/ui/sheet"
 
 const navigation = [
   {
@@ -27,7 +28,11 @@ const navigation = [
   },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  isInSheet?: boolean  // 是否在 Sheet 内部
+}
+
+export function Sidebar({ isInSheet = false }: SidebarProps) {
   const pathname = usePathname()
   const { sidebarCollapsed, toggleSidebar } = useUIPreferences()
 
@@ -42,24 +47,40 @@ export function Sidebar() {
       <div className="flex h-16 items-center justify-between px-4 border-b">
         <div className="flex items-center gap-2 overflow-hidden">
           <Heart className="h-6 w-6 text-pink-500 flex-shrink-0" />
-          {!sidebarCollapsed && (
-            <span className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent whitespace-nowrap">
-              EmotiChat
-            </span>
-          )}
+          <span className={cn(
+            "text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent whitespace-nowrap",
+            // 移动端始终显示，桌面端根据折叠状态决定
+            sidebarCollapsed && "md:hidden"
+          )}>
+            EmotiChat
+          </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="h-8 w-8 flex-shrink-0"
-        >
-          {sidebarCollapsed ? (
-            <ChevronsRight className="h-4 w-4" />
-          ) : (
-            <ChevronsLeft className="h-4 w-4" />
-          )}
-        </Button>
+        
+        {/* 移动端：Sheet 关闭按钮（只在 Sheet 内部时渲染） */}
+        {isInSheet && (
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+              <ChevronsLeft className="h-4 w-4" />
+              <span className="sr-only">关闭菜单</span>
+            </Button>
+          </SheetClose>
+        )}
+        
+        {/* 桌面端：折叠按钮（只在非 Sheet 时渲染） */}
+        {!isInSheet && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="h-8 w-8 flex-shrink-0"
+          >
+            {sidebarCollapsed ? (
+              <ChevronsRight className="h-4 w-4" />
+            ) : (
+              <ChevronsLeft className="h-4 w-4" />
+            )}
+          </Button>
+        )}
       </div>
 
       {/* 导航链接 */}
