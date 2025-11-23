@@ -35,10 +35,12 @@ import {
   updateCustomProvider,
   deleteCustomProvider,
   testCustomProviderConnection,
+  fetchModelsFromCustomProvider,
   validateUrl,
   type CustomProvider,
   type ProtocolType,
 } from '@/lib/ai/models';
+import { getGlobalModelConfig, setGlobalModelConfig, type GlobalModelConfig } from './global-endpoint-selector';
 
 interface CustomProviderFormData {
   name: string;
@@ -46,6 +48,7 @@ interface CustomProviderFormData {
   baseUrl: string;
   apiKey: string;
   models: string;
+  selectedModel: string;
 }
 
 const DEFAULT_FORM_DATA: CustomProviderFormData = {
@@ -54,6 +57,7 @@ const DEFAULT_FORM_DATA: CustomProviderFormData = {
   baseUrl: '',
   apiKey: '',
   models: '',
+  selectedModel: '',
 };
 
 export function CustomProviderDialog() {
@@ -62,6 +66,8 @@ export function CustomProviderDialog() {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [formData, setFormData] = React.useState<CustomProviderFormData>(DEFAULT_FORM_DATA);
   const [isTesting, setIsTesting] = React.useState(false);
+  const [isFetchingModels, setIsFetchingModels] = React.useState(false);
+  const [fetchedModels, setFetchedModels] = React.useState<string[]>([]);
   const [testResult, setTestResult] = React.useState<{
     success: boolean;
     message: string;
@@ -86,16 +92,19 @@ export function CustomProviderDialog() {
     setEditingId(null);
     setTestResult(null);
     setUrlValidation(null);
+    setFetchedModels([]);
   };
 
   // 打开编辑模式
   const handleEdit = (provider: CustomProvider) => {
+    const modelId = provider.models[0] || ''; // 取第一个模型
     setFormData({
       name: provider.name,
       protocol: provider.protocol,
       baseUrl: provider.baseUrl,
       apiKey: provider.apiKey,
-      models: provider.models.join(', '),
+      models: modelId,
+      selectedModel: modelId,
     });
     setEditingId(provider.id);
     setTestResult(null);
@@ -105,15 +114,37 @@ export function CustomProviderDialog() {
   // 删除端点
   const handleDelete = (id: string) => {
     if (confirm('确定要删除此自定义端点吗？')) {
+      // 检查是否是当前选中的全局端点
+      const globalConfig = getGlobalModelConfig();
+      if (globalConfig && globalConfig.isCustom && globalConfig.customProviderId === id) {
+        // 清除全局配置，因为端点被删除了
+        localStorage.removeItem('globalModelConfig');
+        console.log('Cleared global config because custom provider was deleted');
+      }
+
       deleteCustomProvider(id);
       loadProviders();
+
+      // 触发自定义端点变化事件和全局配置变化事件
+      window.dispatchEvent(new Event('customProvidersChanged'));
+      window.dispatchEvent(new Event('globalConfigChanged'));
     }
+  };
+
+  // 规范化 BaseURL（只移除末尾斜杠，保留所有路径）
+  const normalizeBaseUrl = (url: string): string => {
+    if (!url) return url;
+
+    // 只移除末尾的斜杠，保留所有其他路径
+    url = url.replace(/\/+$/, '');
+
+    return url;
   };
 
   // 验证 URL
   const handleUrlChange = (url: string) => {
     setFormData((prev) => ({ ...prev, baseUrl: url }));
-    
+
     if (url) {
       const validation = validateUrl(url);
       setUrlValidation(validation);
@@ -122,7 +153,7 @@ export function CustomProviderDialog() {
     }
   };
 
-  // 测试连接
+  // 测试连接（合并拉取模型功能）
   const handleTest = async () => {
     if (!formData.baseUrl || !formData.apiKey) {
       setTestResult({
@@ -136,15 +167,63 @@ export function CustomProviderDialog() {
     setTestResult(null);
 
     try {
-      const result = await testCustomProviderConnection(
-        formData.baseUrl,
+      // 规范化 URL
+      const normalizedUrl = normalizeBaseUrl(formData.baseUrl);
+
+      // 测试连接
+      const testResult = await testCustomProviderConnection(
+        normalizedUrl,
         formData.apiKey,
         formData.protocol
       );
-      setTestResult({
-        success: result.success,
-        message: result.message || result.error || '未知错误',
-      });
+
+      if (!testResult.success) {
+        setTestResult({
+          success: false,
+          message: testResult.error || '连接测试失败',
+        });
+        setIsTesting(false);
+        return;
+      }
+
+      // 测试成功后自动拉取模型列表
+      setIsFetchingModels(true);
+      const modelsResult = await fetchModelsFromCustomProvider(
+        normalizedUrl,
+        formData.apiKey,
+        formData.protocol
+      );
+
+      if (modelsResult.success && modelsResult.models) {
+        setFetchedModels(modelsResult.models);
+        setFormData((prev) => ({
+          ...prev,
+          baseUrl: normalizedUrl, // 更新为规范化后的 URL
+        }));
+        setTestResult({
+          success: true,
+          message: `连接成功！拉取到 ${modelsResult.models.length} 个模型`,
+        });
+
+        // 3秒后自动隐藏提示
+        setTimeout(() => {
+          setTestResult(null);
+        }, 3000);
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          baseUrl: normalizedUrl,
+        }));
+        setTestResult({
+          success: true,
+          message: '连接成功，但无法拉取模型列表（可能不支持）',
+        });
+
+        // 3秒后自动隐藏提示
+        setTimeout(() => {
+          setTestResult(null);
+        }, 3000);
+      }
     } catch (error) {
       setTestResult({
         success: false,
@@ -152,7 +231,17 @@ export function CustomProviderDialog() {
       });
     } finally {
       setIsTesting(false);
+      setIsFetchingModels(false);
     }
+  };
+
+  // 从拉取的模型列表中选择模型
+  const handleSelectModel = (model: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      models: model,
+      selectedModel: model,
+    }));
   };
 
   // 保存端点
@@ -176,16 +265,12 @@ export function CustomProviderDialog() {
       return;
     }
 
-    // 解析模型列表
-    const models = formData.models
-      .split(',')
-      .map((m) => m.trim())
-      .filter(Boolean);
-
-    if (models.length === 0) {
+    // 验证模型ID
+    const modelId = formData.models.trim();
+    if (!modelId) {
       setTestResult({
         success: false,
-        message: '请至少添加一个模型',
+        message: '请填写模型 ID',
       });
       return;
     }
@@ -198,8 +283,31 @@ export function CustomProviderDialog() {
           protocol: formData.protocol,
           baseUrl: formData.baseUrl,
           apiKey: formData.apiKey,
-          models,
+          models: [modelId], // 转换为数组格式
         });
+
+        // 检查是否是当前选中的全局端点
+        const globalConfig = getGlobalModelConfig();
+        if (globalConfig && globalConfig.isCustom && globalConfig.customProviderId === editingId) {
+          // 更新全局配置中的自定义端点信息
+          const providerType = formData.protocol === 'openai' ? 'openai' :
+                               formData.protocol === 'gemini' ? 'google' : 'anthropic';
+
+          const updatedGlobalConfig: GlobalModelConfig = {
+            ...globalConfig,
+            providerId: providerType,
+            modelId,
+            providerType,
+            customEndpoint: {
+              apiKey: formData.apiKey,
+              baseUrl: formData.baseUrl,
+              protocol: formData.protocol,
+            },
+          };
+
+          setGlobalModelConfig(updatedGlobalConfig);
+          console.log('Updated global config for edited custom provider:', updatedGlobalConfig);
+        }
       } else {
         // 添加新端点
         addCustomProvider({
@@ -207,7 +315,7 @@ export function CustomProviderDialog() {
           protocol: formData.protocol,
           baseUrl: formData.baseUrl,
           apiKey: formData.apiKey,
-          models,
+          models: [modelId], // 转换为数组格式
           enabled: true,
         });
       }
@@ -215,6 +323,9 @@ export function CustomProviderDialog() {
       loadProviders();
       resetForm();
       setOpen(false);
+
+      // 触发自定义端点变化事件
+      window.dispatchEvent(new Event('customProvidersChanged'));
     } catch (error) {
       setTestResult({
         success: false,
@@ -225,9 +336,9 @@ export function CustomProviderDialog() {
 
   // 协议说明
   const protocolDescriptions: Record<ProtocolType, string> = {
-    openai: 'OpenAI 兼容 API（如 LocalAI、Ollama、vLLM 等）',
-    gemini: 'Google Gemini API 格式',
-    anthropic: 'Anthropic Claude API 格式（X-AI 协议）',
+    openai: 'OpenAI 兼容 API（LocalAI、Ollama、vLLM 等）→ 请求路径：您的URL + /v1/chat/completions',
+    gemini: 'Google Gemini API 格式 → 请求路径：您的URL + /v1beta',
+    anthropic: 'Anthropic Claude API 格式（X-AI）→ 请求路径：您的URL + /v1/messages',
   };
 
   return (
@@ -298,6 +409,19 @@ export function CustomProviderDialog() {
                 onChange={(e) => handleUrlChange(e.target.value)}
                 placeholder="https://api.example.com"
               />
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">⚡ 系统会在您填写的 URL 后自动添加协议路径：</p>
+                <ul className="list-disc list-inside pl-2 space-y-0.5">
+                  <li>OpenAI: <code className="bg-muted px-1 rounded">您的URL + /v1/chat/completions</code></li>
+                  <li>Gemini: <code className="bg-muted px-1 rounded">您的URL + /v1beta</code></li>
+                  <li>Claude: <code className="bg-muted px-1 rounded">您的URL + /v1/messages</code></li>
+                </ul>
+                <p className="pt-1">
+                  <span className="font-medium">示例：</span>填写 <code className="bg-muted px-1 rounded">https://api.example.com/custom/path</code>
+                  <br />
+                  <span className="ml-8">→ 实际请求：<code className="bg-muted px-1 rounded">https://api.example.com/custom/path/v1/chat/completions</code></span>
+                </p>
+              </div>
               {urlValidation && !urlValidation.valid && (
                 <p className="text-xs text-destructive">{urlValidation.error}</p>
               )}
@@ -318,20 +442,6 @@ export function CustomProviderDialog() {
               />
             </div>
 
-            {/* 模型列表 */}
-            <div className="space-y-2">
-              <Label htmlFor="models">可用模型 *</Label>
-              <Input
-                id="models"
-                value={formData.models}
-                onChange={(e) => setFormData({ ...formData, models: e.target.value })}
-                placeholder="模型ID，用逗号分隔（例如：llama-3-70b, gpt-3.5-turbo）"
-              />
-              <p className="text-xs text-muted-foreground">
-                输入该端点支持的模型 ID，用逗号分隔
-              </p>
-            </div>
-
             {/* 测试连接按钮 */}
             <Button
               onClick={handleTest}
@@ -342,10 +452,10 @@ export function CustomProviderDialog() {
               {isTesting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  测试中...
+                  {isFetchingModels ? '正在拉取模型...' : '测试中...'}
                 </>
               ) : (
-                '测试连接'
+                '测试连接并拉取模型'
               )}
             </Button>
 
@@ -362,6 +472,56 @@ export function CustomProviderDialog() {
                 </div>
               </Alert>
             )}
+
+            {/* 选择模型 */}
+            <div className="space-y-2">
+              <Label htmlFor="selectedModel">选择模型</Label>
+              {fetchedModels.length > 0 ? (
+                <Select
+                  value={formData.selectedModel}
+                  onValueChange={(value) => {
+                    if (value === '__custom__') {
+                      setFormData((prev) => ({ ...prev, selectedModel: '', models: '' }));
+                    } else {
+                      handleSelectModel(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="selectedModel">
+                    <SelectValue placeholder="从列表中选择模型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__custom__">手动输入...</SelectItem>
+                    {fetchedModels.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="selectedModel"
+                  value={formData.selectedModel}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({ ...formData, selectedModel: value, models: value });
+                  }}
+                  placeholder="输入模型名称"
+                />
+              )}
+            </div>
+
+            {/* 模型ID */}
+            <div className="space-y-2">
+              <Label htmlFor="models">模型 ID *（支持用户填入自定义模型ID）</Label>
+              <Input
+                id="models"
+                value={formData.models}
+                onChange={(e) => setFormData({ ...formData, models: e.target.value })}
+                placeholder="例如：llama-3-70b"
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -418,8 +578,8 @@ export function CustomProviderDialog() {
                       {provider.protocol === 'gemini' && 'Gemini'}
                       {provider.protocol === 'anthropic' && 'Claude'}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {provider.models.length} 个模型
+                    <span className="text-xs text-muted-foreground font-mono">
+                      模型: {provider.models[0] || '未设置'}
                     </span>
                   </div>
                 </CardContent>

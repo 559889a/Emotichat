@@ -37,7 +37,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         // 行内代码
         return (
           <code
-            className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono"
+            className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono break-all"
             {...props}
           >
             {children}
@@ -47,13 +47,13 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
       
       // 代码块
       return (
-        <div className="relative group my-4">
+        <div className="relative group my-4 max-w-full">
           {language && (
-            <div className="absolute top-0 right-0 px-3 py-1 text-xs text-muted-foreground bg-muted rounded-bl">
+            <div className="absolute top-0 right-0 px-3 py-1 text-xs text-muted-foreground bg-muted rounded-bl z-10">
               {language}
             </div>
           )}
-          <pre className="overflow-x-auto p-4 rounded-lg bg-muted">
+          <pre className="overflow-x-auto p-4 rounded-lg bg-muted max-w-full">
             <code className={className} {...props}>
               {children}
             </code>
@@ -64,8 +64,8 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     
     // 表格渲染
     table: ({ children }) => (
-      <div className="my-4 overflow-x-auto">
-        <table className="w-full border-collapse border border-border">
+      <div className="my-4 overflow-x-auto max-w-full">
+        <table className="min-w-full border-collapse border border-border">
           {children}
         </table>
       </div>
@@ -105,11 +105,11 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     a: ({ href, children, ...props }) => {
       // 检查是否为外部链接
       const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
-      
+
       return (
         <a
           href={href}
-          className="text-primary hover:underline"
+          className="text-primary hover:underline break-all"
           // 外部链接添加安全属性
           {...(isExternal && {
             target: '_blank',
@@ -187,7 +187,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     
     // 段落
     p: ({ children }) => (
-      <p className="my-2 leading-relaxed">
+      <p className="my-2 leading-relaxed break-words">
         {children}
       </p>
     ),
@@ -219,7 +219,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
   };
 
   return (
-    <div className={`markdown-renderer prose prose-sm dark:prose-invert max-w-none ${className}`}>
+    <div className={`markdown-renderer prose prose-sm dark:prose-invert max-w-full w-full overflow-hidden ${className}`}>
       <ReactMarkdown
         remarkPlugins={[
           remarkGfm,      // GitHub Flavored Markdown（表格、删除线等）

@@ -140,6 +140,51 @@ export function getCustomProvidersAsModelProviders(): ModelProvider[] {
 }
 
 /**
+ * 从自定义端点拉取模型列表
+ */
+export async function fetchModelsFromCustomProvider(
+  baseUrl: string,
+  apiKey: string,
+  protocol: ProtocolType
+): Promise<{ success: boolean; models?: string[]; error?: string }> {
+  try {
+    const url = `/api/models?protocol=${protocol}&baseUrl=${encodeURIComponent(baseUrl)}&apiKey=${encodeURIComponent(apiKey)}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      return {
+        success: false,
+        error: error.error || `HTTP ${response.status}`,
+      };
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success || !data.models) {
+      return {
+        success: false,
+        error: '无效的响应格式',
+      };
+    }
+    
+    // 提取模型 ID 列表
+    const models = data.models.map((m: any) => m.id);
+    
+    return {
+      success: true,
+      models,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '未知错误',
+    };
+  }
+}
+
+/**
  * 测试自定义端点连接
  */
 export async function testCustomProviderConnection(

@@ -70,7 +70,9 @@ export default function CharactersPage() {
 
   return (
     <ErrorBoundary>
-      <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl">
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl">
       {/* 页面标题和操作栏 */}
       <div className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8 gap-3">
         <div className="min-w-0">
@@ -123,6 +125,8 @@ export default function CharactersPage() {
         character={editingCharacter}
         onSubmit={handleFormSubmit}
       />
+          </div>
+        </div>
       </div>
     </ErrorBoundary>
   );

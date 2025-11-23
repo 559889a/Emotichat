@@ -101,18 +101,18 @@ export const GOOGLE_PROVIDER: ModelProvider = {
   website: 'https://ai.google.dev',
   models: [
     {
-      id: 'gemini-2.0-flash-exp',
-      name: 'Gemini 2.0 Flash (Experimental)',
+      id: 'gemini-flash-latest',
+      name: 'Gemini Flash Latest',
       provider: 'google',
       contextWindow: 1048576,
       maxOutputTokens: 8192,
       supportsVision: true,
       supportsTools: true,
       pricing: {
-        input: 0.00,  // 实验版免费
-        output: 0.00,
+        input: 0.075,
+        output: 0.30,
       },
-      description: 'Gemini 2.0 的实验版本，拥有超大上下文窗口（免费）',
+      description: 'Gemini Flash 最新版本，更快速且更经济',
     },
     {
       id: 'gemini-1.5-pro',
@@ -141,6 +141,20 @@ export const GOOGLE_PROVIDER: ModelProvider = {
         output: 0.30,
       },
       description: 'Gemini 1.5 Flash 更快速且更经济',
+    },
+    {
+      id: 'gemini-2.0-flash-exp',
+      name: 'Gemini 2.0 Flash (Experimental)',
+      provider: 'google',
+      contextWindow: 1048576,
+      maxOutputTokens: 8192,
+      supportsVision: true,
+      supportsTools: true,
+      pricing: {
+        input: 0.00,  // 实验版免费
+        output: 0.00,
+      },
+      description: 'Gemini 2.0 的实验版本，拥有超大上下文窗口（可能有配额限制）',
     },
     {
       id: 'gemini-pro',
@@ -294,4 +308,106 @@ export function getModelInfo(providerId: string, modelId: string): ModelInfo | u
 export function getModelTokenLimit(providerId: string, modelId: string): number {
   const modelInfo = getModelInfo(providerId, modelId);
   return modelInfo?.contextWindow || 4096; // 默认 4096
+}
+
+/**
+ * 从官方 API 动态拉取模型列表
+ * 失败时返回硬编码的 fallback 列表
+ */
+export async function fetchOfficialModels(
+  providerId: 'openai' | 'google' | 'anthropic',
+  apiKey?: string
+): Promise<ModelInfo[]> {
+  const provider = OFFICIAL_PROVIDERS[providerId];
+  if (!provider) {
+    return [];
+  }
+
+  // 如果没有提供 API Key，直接返回硬编码列表
+  if (!apiKey) {
+    return provider.models;
+  }
+
+  try {
+    // 根据 provider 类型构建不同的 URL
+    let baseUrl: string;
+    
+    switch (providerId) {
+      case 'openai':
+        baseUrl = 'https://api.openai.com';
+        break;
+      case 'google':
+        baseUrl = 'https://generativelanguage.googleapis.com';
+        break;
+      case 'anthropic':
+        // Anthropic 没有公开的模型列表 API，直接返回硬编码列表
+        return provider.models;
+      default:
+        return provider.models;
+    }
+
+    // 调用我们的 API 端点
+    const response = await fetch(
+      `/api/models?protocol=${providerId}&baseUrl=${encodeURIComponent(baseUrl)}&apiKey=${encodeURIComponent(apiKey)}`
+    );
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch ${providerId} models, using fallback`);
+      return provider.models;
+    }
+
+    const data = await response.json();
+    
+    if (!data.success || !data.models || data.models.length === 0) {
+      console.warn(`Invalid response from ${providerId}, using fallback`);
+      return provider.models;
+    }
+
+    // 合并动态拉取的模型和硬编码模型
+    // 优先使用硬编码的详细信息（因为包含 pricing、description 等）
+    const hardcodedModelIds = new Set(provider.models.map(m => m.id));
+    
+    // 保留所有硬编码模型
+    const mergedModels = [...provider.models];
+    
+    // 添加新发现的模型（硬编码中没有的）
+    for (const fetchedModel of data.models) {
+      if (!hardcodedModelIds.has(fetchedModel.id)) {
+        mergedModels.push({
+          id: fetchedModel.id,
+          name: fetchedModel.name || fetchedModel.id,
+          provider: providerId,
+          contextWindow: fetchedModel.contextWindow || 4096,
+          maxOutputTokens: fetchedModel.maxOutputTokens,
+          description: fetchedModel.description || `${provider.name} model: ${fetchedModel.id}`,
+        });
+      }
+    }
+    
+    return mergedModels;
+  } catch (error) {
+    console.error(`Error fetching ${providerId} models:`, error);
+    // 出错时返回硬编码列表作为 fallback
+    return provider.models;
+  }
+}
+
+/**
+ * 获取增强的提供商配置（包含动态拉取的模型）
+ */
+export async function getEnhancedProvider(
+  providerId: 'openai' | 'google' | 'anthropic',
+  apiKey?: string
+): Promise<ModelProvider> {
+  const provider = OFFICIAL_PROVIDERS[providerId];
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+
+  const models = await fetchOfficialModels(providerId, apiKey);
+  
+  return {
+    ...provider,
+    models,
+  };
 }

@@ -320,8 +320,8 @@ export function ApiKeysManager() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>1. 在上方输入对应提供商的 API Key</p>
-          <p>2. 点击"保存"按钮保存 API Key</p>
-          <p>3. 可选：点击"测试连接"验证 API Key 是否有效</p>
+          <p>2. 点击&quot;保存&quot;按钮保存 API Key</p>
+          <p>3. 可选：点击&quot;测试连接&quot;验证 API Key 是否有效</p>
           <p>4. 配置完成后，即可在聊天中选择对应的模型</p>
         </CardContent>
       </Card>

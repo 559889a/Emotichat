@@ -19,7 +19,7 @@ export default function MainLayout({
         <Header />
 
         {/* 页面内容 */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-hidden relative">
           {children}
         </main>
       </div>

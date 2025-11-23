@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { Memory } from '@/types';
 import { withFileLock } from './lock';
 
@@ -61,8 +62,10 @@ export async function createMemory(
   try {
     await ensureCharacterDir(characterId);
     
+    // 使用时间戳 + UUID 确保文件名唯一性，避免并发冲突
     const timestamp = Date.now();
-    const filename = `memory_${timestamp}.md`;
+    const uniqueId = randomUUID().split('-')[0]; // 取 UUID 的前8个字符
+    const filename = `memory_${timestamp}_${uniqueId}.md`;
     const characterDir = path.join(DATA_DIR, characterId);
     const filePath = path.join(characterDir, filename);
     

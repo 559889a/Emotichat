@@ -25,6 +25,8 @@ export {
   findProviderByModel,
   getModelInfo,
   getModelTokenLimit,
+  fetchOfficialModels,
+  getEnhancedProvider,
 } from './providers';
 
 // 导出自定义端点管理
@@ -36,6 +38,7 @@ export {
   toggleCustomProvider,
   customProviderToModelProvider,
   getCustomProvidersAsModelProviders,
+  fetchModelsFromCustomProvider,
   testCustomProviderConnection,
   validateUrl,
 } from './custom';

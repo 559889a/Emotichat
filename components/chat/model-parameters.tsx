@@ -58,6 +58,24 @@ const DEFAULT_PARAMETERS: Required<ModelParameters> = {
   frequencyPenalty: 0,
 };
 
+/**
+ * 参数信息提示组件
+ */
+function ParameterTooltip({ description }: { description: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="text-xs">{description}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function ModelParameters({
   value = {},
   onChange,
@@ -77,20 +95,6 @@ export function ModelParameters({
       [key]: newValue,
     });
   };
-
-  // 参数信息提示组件
-  const ParameterTooltip = ({ description }: { description: string }) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          <p className="text-xs">{description}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 
   return (
     <div className={cn('space-y-6', className)}>

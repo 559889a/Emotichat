@@ -255,7 +255,9 @@ export default function PresetsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto p-6 max-w-7xl">
       {/* 页面标题和操作 */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">预设管理</h1>
@@ -479,6 +481,8 @@ export default function PresetsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }

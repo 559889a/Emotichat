@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Message, MessageRole } from '@/types';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
+import { getGlobalModelConfig, type GlobalModelConfig } from '@/components/settings/global-endpoint-selector';
+import { getStoredApiKey } from '@/components/settings/api-keys';
+import type { AIProviderType } from '@/lib/ai/models';
+import { toast } from 'sonner';
 
 interface UseMessagesOptions {
   conversationId: string | null;
@@ -30,6 +34,47 @@ export function useMessages({
 }: UseMessagesOptions): UseMessagesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 使用 lazy initialization，在组件初始化时立即读取 localStorage
+  const [globalConfig, setGlobalConfig] = useState<GlobalModelConfig | null>(() =>
+    getGlobalModelConfig()
+  );
+
+  // 监听全局模型配置的变化
+  useEffect(() => {
+    // 监听配置变化（当在设置页面修改配置时）
+    const handleConfigChange = () => {
+      setGlobalConfig(getGlobalModelConfig());
+    };
+
+    // 监听 storage 事件（跨标签页同步）
+    window.addEventListener('storage', handleConfigChange);
+    // 监听自定义事件（同一页面内的配置更新）
+    window.addEventListener('globalConfigChanged', handleConfigChange);
+
+    return () => {
+      window.removeEventListener('storage', handleConfigChange);
+      window.removeEventListener('globalConfigChanged', handleConfigChange);
+    };
+  }, []);
+
+  // 使用 useMemo 创建 transport，确保全局配置变化时重新创建
+  const transport = useMemo(() => {
+    // 如果是官方端点，读取对应的 API Key
+    let apiKey: string | null = null;
+    if (globalConfig && !globalConfig.isCustom) {
+      // 从 localStorage 获取官方提供商的 API Key
+      apiKey = getStoredApiKey(globalConfig.providerType as AIProviderType);
+    }
+
+    return new DefaultChatTransport({
+      api: '/api/chat',
+      body: {
+        conversationId,
+        globalModelConfig: globalConfig,
+        apiKey, // 传递 API Key 到服务端
+      },
+    });
+  }, [conversationId, globalConfig]);
 
   // 使用 Vercel AI SDK useChat hook (v5.x)
   const {
@@ -40,15 +85,15 @@ export function useMessages({
     stop,
     error: chatError,
   } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      body: {
-        conversationId,
-      },
-    }),
+    transport,
     id: conversationId || undefined,
     onError: (err: Error) => {
-      setError(err.message);
+      const errorMessage = err.message || '发生未知错误';
+      setError(errorMessage);
+      toast.error('对话出错', {
+        description: errorMessage,
+        duration: 6000,
+      });
       console.error('Chat error:', err);
     },
   });
@@ -104,6 +149,10 @@ export function useMessages({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '获取消息失败';
       setError(errorMessage);
+      toast.error('获取消息失败', {
+        description: errorMessage,
+        duration: 5000,
+      });
       console.error('Failed to fetch messages:', err);
     } finally {
       setLoading(false);
@@ -123,6 +172,17 @@ export function useMessages({
         throw new Error('消息内容不能为空');
       }
 
+      // 检查是否已配置全局端点
+      if (!globalConfig) {
+        const errorMsg = '未配置全局端点，请在设置页面选择一个模型端点';
+        setError(errorMsg);
+        toast.error('配置错误', {
+          description: errorMsg,
+          duration: 5000,
+        });
+        throw new Error(errorMsg);
+      }
+
       setError(null);
 
       try {
@@ -139,11 +199,11 @@ export function useMessages({
         throw err;
       }
     },
-    [conversationId, sendChatMessage]
+    [conversationId, globalConfig, sendChatMessage]
   );
 
   /**
-   * 重试消息（重新生成 AI 回复）
+   * 重试消息（重新生成 AI 回复或重新发送用户消息）
    */
   const retryMessage = useCallback(
     async (messageId: string) => {
@@ -158,31 +218,42 @@ export function useMessages({
       }
 
       const message = messages[messageIndex];
-      if (message.role !== 'assistant') {
-        throw new Error('只能重试 AI 消息');
-      }
 
       try {
-        // 删除当前 AI 消息及之后的所有消息
-        const messagesBeforeAssistant = chatMessages.slice(0, messageIndex);
-        setChatMessages(messagesBeforeAssistant);
-        
-        // 重新发送最后一条用户消息
-        const lastUserMessage = messagesBeforeAssistant
-          .slice()
-          .reverse()
-          .find((m: any) => m.role === 'user');
-        
-        if (lastUserMessage && lastUserMessage.parts) {
-          const text = lastUserMessage.parts
-            .filter((p: any) => p.type === 'text')
-            .map((p: any) => p.text)
-            .join('');
-          
-          if (text) {
+        if (message.role === 'assistant') {
+          // AI 消息：删除当前 AI 消息及之后的所有消息，重新发送最后一条用户消息
+          const messagesBeforeAssistant = chatMessages.slice(0, messageIndex);
+          setChatMessages(messagesBeforeAssistant);
+
+          // 重新发送最后一条用户消息
+          const lastUserMessage = messagesBeforeAssistant
+            .slice()
+            .reverse()
+            .find((m: any) => m.role === 'user');
+
+          if (lastUserMessage && lastUserMessage.parts) {
+            const text = lastUserMessage.parts
+              .filter((p: any) => p.type === 'text')
+              .map((p: any) => p.text)
+              .join('');
+
+            if (text) {
+              await sendChatMessage({
+                role: 'user',
+                parts: [{ type: 'text', text }],
+              });
+            }
+          }
+        } else if (message.role === 'user') {
+          // 用户消息：删除该消息之后的所有消息，重新发送该用户消息
+          const messagesBeforeUser = chatMessages.slice(0, messageIndex);
+          setChatMessages(messagesBeforeUser);
+
+          // 重新发送该用户消息
+          if (message.content) {
             await sendChatMessage({
               role: 'user',
-              parts: [{ type: 'text', text }],
+              parts: [{ type: 'text', text: message.content }],
             });
           }
         }
@@ -245,6 +316,10 @@ export function useMessages({
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '编辑消息失败';
         setError(errorMessage);
+        toast.error('编辑消息失败', {
+          description: errorMessage,
+          duration: 5000,
+        });
         console.error('Failed to edit message:', err);
         throw err;
       } finally {
@@ -290,6 +365,10 @@ export function useMessages({
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '删除消息失败';
         setError(errorMessage);
+        toast.error('删除消息失败', {
+          description: errorMessage,
+          duration: 5000,
+        });
         console.error('Failed to delete message:', err);
         throw err;
       } finally {
@@ -332,6 +411,10 @@ export function useMessages({
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '切换版本失败';
         setError(errorMessage);
+        toast.error('切换版本失败', {
+          description: errorMessage,
+          duration: 5000,
+        });
         console.error('Failed to switch version:', err);
         throw err;
       } finally {

@@ -55,7 +55,7 @@ export function AuthorsNoteEditor({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <BookOpen className="h-5 w-5" />
-          Author's Note（作者注释）
+          Author&apos;s Note（作者注释）
         </CardTitle>
         <CardDescription>
           动态注入的提示信息，用于引导对话方向和氛围。会在指定深度插入到对话历史中。

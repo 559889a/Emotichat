@@ -85,7 +85,6 @@ export function MessageActions({
   };
 
   const isUserMessage = message.role === 'user';
-  const isAssistantMessage = message.role === 'assistant';
 
   return (
     <>
@@ -120,14 +119,14 @@ export function MessageActions({
             </Button>
           )}
 
-          {/* AI 消息：重新生成按钮 */}
-          {isAssistantMessage && onRegenerate && (
+          {/* 重试/重新生成按钮 */}
+          {onRegenerate && (
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 hover:bg-accent"
               onClick={onRegenerate}
-              title="重新生成"
+              title={isUserMessage ? "重试" : "重新生成"}
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
@@ -156,11 +155,11 @@ export function MessageActions({
                 </>
               )}
 
-              {isAssistantMessage && onRegenerate && (
+              {onRegenerate && (
                 <>
                   <DropdownMenuItem onClick={onRegenerate}>
                     <RotateCcw className="mr-2 h-4 w-4" />
-                    重新生成
+                    {isUserMessage ? '重试' : '重新生成'}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                 </>

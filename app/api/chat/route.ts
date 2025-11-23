@@ -3,14 +3,43 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { addMessage, getConversationById } from '@/lib/storage/conversations';
-import { getStoredApiKey } from '@/components/settings/api-keys';
 import { getProviderById, getCustomProviders } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
+
+// 全局模型配置类型（来自客户端）
+interface GlobalModelConfig {
+  providerId: string;
+  modelId: string;
+  providerType: 'openai' | 'google' | 'anthropic' | 'custom';
+  isCustom: boolean;
+  customProviderId?: string;
+  // 自定义端点的完整配置（客户端传递，因为服务端无法访问 localStorage）
+  customEndpoint?: {
+    apiKey: string;
+    baseUrl: string;
+    protocol: 'openai' | 'gemini' | 'anthropic';
+  };
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { messages, conversationId }: { messages: UIMessage[]; conversationId: string } = body;
+    const {
+      messages,
+      conversationId,
+      globalModelConfig,
+      apiKey: clientApiKey,
+    }: {
+      messages: UIMessage[];
+      conversationId: string;
+      globalModelConfig?: GlobalModelConfig | null;
+      apiKey?: string | null;
+    } = body;
+
+    console.log('=== Chat API Request ===');
+    console.log('conversationId:', conversationId);
+    console.log('globalModelConfig:', JSON.stringify(globalModelConfig, null, 2));
+    console.log('clientApiKey:', clientApiKey ? '***provided***' : null);
 
     if (!conversationId) {
       return new Response('Missing conversationId', { status: 400 });
@@ -45,21 +74,41 @@ export async function POST(request: Request) {
     let apiKey: string | undefined;
     let baseUrl: string | undefined;
 
-    if (conversation.modelConfig) {
-      // 使用对话配置的模型
-      providerId = conversation.modelConfig.providerId;
-      modelId = conversation.modelConfig.modelId;
-      
+    // 优先使用全局模型配置（来自客户端）
+    if (globalModelConfig) {
+      providerId = globalModelConfig.providerId;
+      modelId = globalModelConfig.modelId;
+
       // 检查是否是自定义端点
-      const customProviders = getCustomProviders();
-      const customProvider = customProviders.find(p => p.id === providerId);
-      
-      if (customProvider) {
-        // 自定义端点
-        providerType = customProvider.protocol === 'openai' ? 'openai' :
-                       customProvider.protocol === 'gemini' ? 'google' : 'anthropic';
-        apiKey = customProvider.apiKey;
-        baseUrl = customProvider.baseUrl;
+      if (globalModelConfig.isCustom) {
+        console.log('Using custom endpoint');
+        // 优先使用客户端传递的完整配置（因为服务端无法访问 localStorage）
+        if (globalModelConfig.customEndpoint) {
+          console.log('Custom endpoint config found:', {
+            protocol: globalModelConfig.customEndpoint.protocol,
+            baseUrl: globalModelConfig.customEndpoint.baseUrl,
+            hasApiKey: !!globalModelConfig.customEndpoint.apiKey
+          });
+          providerType = globalModelConfig.customEndpoint.protocol === 'openai' ? 'openai' :
+                         globalModelConfig.customEndpoint.protocol === 'gemini' ? 'google' : 'anthropic';
+          apiKey = globalModelConfig.customEndpoint.apiKey;
+          baseUrl = globalModelConfig.customEndpoint.baseUrl;
+        } else if (globalModelConfig.customProviderId) {
+          // 向后兼容：尝试从服务端获取（仅开发环境有效）
+          const customProviders = getCustomProviders();
+          const customProvider = customProviders.find(p => p.id === globalModelConfig.customProviderId);
+
+          if (customProvider) {
+            providerType = customProvider.protocol === 'openai' ? 'openai' :
+                           customProvider.protocol === 'gemini' ? 'google' : 'anthropic';
+            apiKey = customProvider.apiKey;
+            baseUrl = customProvider.baseUrl;
+          } else {
+            return new Response('Custom provider not found. Please re-select your custom endpoint in settings.', { status: 400 });
+          }
+        } else {
+          return new Response('Custom endpoint configuration missing', { status: 400 });
+        }
       } else {
         // 官方提供商
         const provider = getProviderById(providerId);
@@ -67,58 +116,124 @@ export async function POST(request: Request) {
           return new Response('Invalid provider', { status: 400 });
         }
         providerType = provider.type;
-        
-        // 从 localStorage 获取 API Key（客户端存储）
-        // 注意：这里需要在服务端，所以实际上需要从环境变量获取
-        // 或者要求客户端在请求中传递（不安全）
-        // 最佳方案：使用环境变量
-        apiKey = process.env[`${providerType.toUpperCase()}_API_KEY`];
+
+        // 从客户端传递的 API Key
+        apiKey = clientApiKey || undefined;
+      }
+    } else if (conversation.modelConfig) {
+      // 向后兼容：使用对话配置的模型（虽然新版本已移除）
+      providerId = conversation.modelConfig.providerId;
+      modelId = conversation.modelConfig.modelId;
+
+      const customProviders = getCustomProviders();
+      const customProvider = customProviders.find(p => p.id === providerId);
+
+      if (customProvider) {
+        providerType = customProvider.protocol === 'openai' ? 'openai' :
+                       customProvider.protocol === 'gemini' ? 'google' : 'anthropic';
+        apiKey = customProvider.apiKey;
+        baseUrl = customProvider.baseUrl;
+      } else {
+        const provider = getProviderById(providerId);
+        if (!provider) {
+          return new Response('Invalid provider', { status: 400 });
+        }
+        providerType = provider.type;
+        apiKey = clientApiKey || undefined;
       }
     } else {
-      // 使用默认模型（从环境变量）
-      if (process.env.GOOGLE_API_KEY) {
-        providerType = 'google';
-        providerId = 'google';
-        modelId = 'gemini-1.5-flash';
-        apiKey = process.env.GOOGLE_API_KEY;
-      } else if (process.env.OPENAI_API_KEY) {
-        providerType = 'openai';
-        providerId = 'openai';
-        modelId = 'gpt-4o-mini';
-        apiKey = process.env.OPENAI_API_KEY;
-      } else if (process.env.ANTHROPIC_API_KEY) {
-        providerType = 'anthropic';
-        providerId = 'anthropic';
-        modelId = 'claude-3-haiku-20240307';
-        apiKey = process.env.ANTHROPIC_API_KEY;
-      } else {
-        return new Response('No API key configured', { status: 500 });
-      }
+      // 没有配置全局端点
+      return new Response('No global endpoint configured. Please select a global endpoint in settings.', { status: 400 });
     }
+
+    // 验证 API Key 是否存在
+    if (!apiKey) {
+      return new Response(
+        `No API key provided for ${providerType}. Please configure API key in settings.`,
+        { status: 400 }
+      );
+    }
+
+    console.log('Creating model instance:', {
+      providerType,
+      modelId,
+      baseUrl,
+      hasApiKey: !!apiKey
+    });
 
     // 创建模型实例
     let model;
     switch (providerType) {
       case 'openai':
-        const openai = createOpenAI({
-          apiKey: apiKey || process.env.OPENAI_API_KEY,
-          baseURL: baseUrl,
+        // OpenAI 协议：直接在原 URL 后添加 /v1，SDK 会再添加 /chat/completions
+        // 最终路径：baseUrl + /v1 + /chat/completions
+        let openaiBaseUrl = baseUrl || '';
+        // 移除末尾斜杠
+        openaiBaseUrl = openaiBaseUrl.replace(/\/+$/, '');
+        // 直接添加 /v1
+        openaiBaseUrl = `${openaiBaseUrl}/v1`;
+
+        console.log('OpenAI config:', {
+          originalBaseURL: baseUrl,
+          finalBaseURL: openaiBaseUrl,
+          modelId,
+          hasApiKey: !!apiKey,
+          note: 'SDK will append /chat/completions to make: ' + openaiBaseUrl + '/chat/completions'
         });
-        model = openai(modelId);
+
+        const openai = createOpenAI({
+          apiKey,
+          baseURL: openaiBaseUrl,
+        });
+
+        // 使用 .chat() 方法明确指定使用 chat completions API
+        model = openai.chat(modelId);
         break;
 
       case 'google':
+        // Gemini 协议：直接在原 URL 后添加 /v1beta
+        // 最终路径：baseUrl + /v1beta + (SDK 自动添加的端点)
+        let geminiBaseUrl = baseUrl || '';
+        // 移除末尾斜杠
+        geminiBaseUrl = geminiBaseUrl.replace(/\/+$/, '');
+        // 直接添加 /v1beta
+        geminiBaseUrl = `${geminiBaseUrl}/v1beta`;
+
+        console.log('Gemini config:', {
+          originalBaseURL: baseUrl,
+          finalBaseURL: geminiBaseUrl,
+          modelId,
+          hasApiKey: !!apiKey,
+          note: 'Final request URL: ' + geminiBaseUrl + '/...'
+        });
+
         const google = createGoogleGenerativeAI({
-          apiKey: apiKey || process.env.GOOGLE_API_KEY,
-          baseURL: baseUrl,
+          apiKey,
+          baseURL: geminiBaseUrl,
         });
         model = google(modelId);
         break;
 
       case 'anthropic':
+        // Anthropic 协议：直接在原 URL 后添加 /v1，SDK 会再添加 /messages
+        // 最终路径：baseUrl + /v1 + /messages
+        let anthropicBaseUrl = baseUrl || '';
+        // 移除末尾斜杠
+        anthropicBaseUrl = anthropicBaseUrl.replace(/\/+$/, '');
+        // 直接添加 /v1
+        anthropicBaseUrl = `${anthropicBaseUrl}/v1`;
+
+        console.log('Anthropic config:', {
+          originalBaseURL: baseUrl,
+          finalBaseURL: anthropicBaseUrl,
+          modelId,
+          hasApiKey: !!apiKey,
+          note: 'SDK will append /messages to make: ' + anthropicBaseUrl + '/messages'
+        });
+
         const anthropic = createAnthropic({
-          apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
-          baseURL: baseUrl,
+          apiKey,
+          baseURL: anthropicBaseUrl,
         });
         model = anthropic(modelId);
         break;
@@ -134,13 +249,23 @@ export async function POST(request: Request) {
     const streamOptions: any = {
       model,
       messages: modelMessages,
-      async onFinish({ text }: { text: string }) {
-        // 流式响应完成后，保存 AI 的回复
-        await addMessage(conversationId, {
-          role: 'assistant',
-          content: text,
-          model: modelId,
+      async onFinish({ text, finishReason }: { text: string; finishReason: string }) {
+        console.log('Stream finished:', {
+          textLength: text?.length || 0,
+          finishReason,
+          hasText: !!text
         });
+
+        // 流式响应完成后，保存 AI 的回复
+        if (text) {
+          await addMessage(conversationId, {
+            role: 'assistant',
+            content: text,
+            model: modelId,
+          });
+        } else {
+          console.error('No text received from AI model');
+        }
       },
     };
 
@@ -164,15 +289,30 @@ export async function POST(request: Request) {
     }
 
     // 调用 AI 模型
-    const result = streamText(streamOptions);
+    console.log('Calling streamText with options:', {
+      baseURL: baseUrl,
+      modelId,
+      messagesCount: modelMessages.length,
+      temperature: streamOptions.temperature,
+    });
 
-    // 返回 UI 消息流响应（重要：与 useChat 配合使用）
-    return result.toUIMessageStreamResponse();
+    try {
+      const result = streamText(streamOptions);
+
+      // 返回 UI 消息流响应（重要：与 useChat 配合使用）
+      return result.toUIMessageStreamResponse();
+    } catch (streamError) {
+      console.error('StreamText error:', streamError);
+      throw streamError;
+    }
   } catch (error) {
     console.error('Chat API Error:', error);
-    return new Response(
-      error instanceof Error ? error.message : 'Internal Server Error',
-      { status: 500 }
-    );
+
+    // 返回更详细的错误信息
+    const errorMessage = error instanceof Error
+      ? `${error.message}\n${error.stack || ''}`
+      : 'Internal Server Error';
+
+    return new Response(errorMessage, { status: 500 });
   }
 }

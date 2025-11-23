@@ -425,7 +425,7 @@ export function PromptConfig({
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
-                  <p className="text-sm">点击上方"添加"按钮配置 Jailbreak Prompt</p>
+                  <p className="text-sm">点击上方&quot;添加&quot;按钮配置 Jailbreak Prompt</p>
                 </div>
               )}
             </CardContent>
@@ -488,7 +488,7 @@ export function PromptConfig({
                 </div>
               ) : (
                 <div className="text-center py-4 text-muted-foreground">
-                  <p className="text-sm">点击上方"添加"按钮配置 NSFW Prompt</p>
+                  <p className="text-sm">点击上方&quot;添加&quot;按钮配置 NSFW Prompt</p>
                 </div>
               )}
             </CardContent>

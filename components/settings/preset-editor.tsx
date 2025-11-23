@@ -178,7 +178,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
           </TabsTrigger>
           <TabsTrigger value="authors-note">
             <Layers className="h-4 w-4 mr-2" />
-            Author's Note
+            Author&apos;s Note
           </TabsTrigger>
         </TabsList>
 

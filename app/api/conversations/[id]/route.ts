@@ -95,6 +95,34 @@ export async function PUT(
       updates.promptConfig = body.promptConfig;
     }
     
+    // 验证并添加 modelConfig
+    if (body.modelConfig !== undefined) {
+      // modelConfig 可以是 null/undefined (表示使用默认) 或对象
+      if (body.modelConfig === null) {
+        updates.modelConfig = undefined;
+      } else if (typeof body.modelConfig === 'object') {
+        // 基本验证：确保有必要的字段
+        if (!body.modelConfig.providerId || !body.modelConfig.modelId) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: '模型配置格式无效：缺少 providerId 或 modelId',
+            },
+            { status: 400 }
+          );
+        }
+        updates.modelConfig = body.modelConfig;
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '模型配置格式无效',
+          },
+          { status: 400 }
+        );
+      }
+    }
+    
     // 确保至少有一个字段要更新
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(

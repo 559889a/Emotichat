@@ -172,14 +172,14 @@
 ### Phase 1: 渲染与UI优化
 
 #### 1.3 多模型支持与 UI 选择器
-- [ ] 1.3.1: 在 emotichat/components/chat/model-selector.tsx 创建模型选择器
-- [ ] 1.3.2: 实现内置模型列表（Gemini/OpenAI/Claude）
-- [ ] 1.3.3: 实现自定义端点配置（OpenAI/Gemini/X-AI 协议）
-- [ ] 1.3.4: 实现模型参数配置（temperature, top_p, max_tokens）
-- [ ] 1.3.5: 在对话设置中集成模型选择器
-- [ ] 1.3.6: 更新 emotichat/lib/storage/conversations.ts 保存模型配置
-- [ ] 1.3.7: 在 emotichat/app/api/chat/route.ts 实现模型路由
-- [ ] 1.3.8: Git commit: "feat: 实现多模型支持"
+- [x] 1.3.1: 在 emotichat/components/chat/model-selector.tsx 创建模型选择器
+- [x] 1.3.2: 实现内置模型列表（Gemini/OpenAI/Claude）
+- [x] 1.3.3: 实现自定义端点配置（OpenAI/Gemini/X-AI 协议）
+- [x] 1.3.4: 实现模型参数配置（temperature, top_p, max_tokens）
+- [x] 1.3.5: 在对话设置中集成模型选择器
+- [x] 1.3.6: 更新 emotichat/lib/storage/conversations.ts 保存模型配置
+- [x] 1.3.7: 在 emotichat/app/api/chat/route.ts 实现模型路由
+- [x] 1.3.8: Git commit: "feat: 实现多模型支持"
 
 #### 1.4 消息编辑与重新生成
 - [x] 1.4.1: 扩展数据类型支持消息版本管理和分支
@@ -219,13 +219,13 @@
 - [ ] 2.0.1: 阅读 emotichat/docs/refactoring-plan.md 的 Phase 2 部分
 
 #### 2.1 Dev Mode（开发者模式）
-- [ ] 2.1.1: 在 emotichat/components/chat/dev-mode-panel.tsx 创建开发面板
-- [ ] 2.1.2: 实现显示原始提示词功能（完整 messages 数组）
-- [ ] 2.1.3: 实现显示 API 请求/响应（JSON 格式）
-- [ ] 2.1.4: 实现显示 Token 使用详情（每条消息的 Token 数）
-- [ ] 2.1.5: 实现复制提示词功能（方便调试）
-- [ ] 2.1.6: 在设置页面添加 Dev Mode 开关
-- [ ] 2.1.7: Git commit: "feat: 实现开发者模式"
+- [x] 2.1.1: 在 emotichat/components/chat/dev-mode-panel.tsx 创建开发面板
+- [x] 2.1.2: 实现显示原始提示词功能（完整 messages 数组）
+- [x] 2.1.3: 实现显示 API 请求/响应（JSON 格式）
+- [x] 2.1.4: 实现显示 Token 使用详情（每条消息的 Token 数）
+- [x] 2.1.5: 实现复制提示词功能（方便调试）
+- [x] 2.1.6: 在设置页面添加 Dev Mode 开关
+- [x] 2.1.7: Git commit: "feat: 实现开发者模式"
 
 #### 2.2 函数调用框架
 - [ ] 2.2.1: 在 emotichat/lib/ai/tools/registry.ts 创建工具注册表
@@ -247,13 +247,13 @@
 - [ ] 2.3.7: Git commit: "feat: 实现 Memory Bank MCP 集成"
 
 #### 2.4 自定义端点支持
-- [ ] 2.4.1: 在设置页面添加自定义端点配置
-- [ ] 2.4.2: 实现 OpenAI 兼容协议端点（如 LocalAI, Ollama）
-- [ ] 2.4.3: 实现 Gemini 协议端点（Google AI Studio）
-- [ ] 2.4.4: 实现 X-AI 协议端点（Claude API 格式）
-- [ ] 2.4.5: 实现端点健康检查（测试连接）
-- [ ] 2.4.6: 实现端点凭据加密存储
-- [ ] 2.4.7: Git commit: "feat: 实现自定义端点支持"
+- [x] 2.4.1: 在设置页面添加自定义端点配置
+- [x] 2.4.2: 实现 OpenAI 兼容协议端点（如 LocalAI, Ollama）
+- [x] 2.4.3: 实现 Gemini 协议端点（Google AI Studio）
+- [x] 2.4.4: 实现 X-AI 协议端点（Claude API 格式）
+- [x] 2.4.5: 实现端点健康检查（测试连接）
+- [x] 2.4.6: 实现端点凭据加密存储
+- [x] 2.4.7: Git commit: "feat: 实现自定义端点支持"
 
 #### 2.5 Phase 2 集成测试
 - [ ] 2.5.1: 测试 Dev Mode 显示
@@ -320,11 +320,11 @@
 
 ## 进度统计
 
-- **已完成**: 151 项（Phase 0 + Phase 1.1 + Phase 1.2 + Phase 1.4 + Phase 1.5 完成）
+- **已完成**: 173 项（Phase 0, 1.1-1.5, 2.1, 2.4 完成）
 - **进行中**: 0 项
-- **待办**: 107 项（Phase 1.3, 1.6, Phase 2-3）
+- **待办**: 85 项（Phase 1.6, 2.2-2.3, 2.5, Phase 3）
 - **总计**: 258 项
-- **完成率**: 58.5%
+- **完成率**: 67.1%
 
 ---
 
@@ -394,4 +394,48 @@
 - 6 个动画效果
 - 2 个组件 memo 优化
 
-**下一步**：Phase 1.3（多模型支持）或 Phase 1.6（集成测试）
+**下一步**：Phase 2.2（函数调用）或 Phase 2.3（MCP）或用户需求新功能
+
+## Phase 1.3 完成标志 🎉
+
+**Phase 1.3（多模型支持与UI选择器）已完成！**
+
+- ✅ 8 个子任务全部完成
+- ✅ 官方模型支持（OpenAI/Gemini/Claude）
+- ✅ 自定义端点配置
+- ✅ 模型参数配置UI
+
+**已实现的核心功能**：
+- 模型选择器组件（搜索、分组显示）
+- 模型参数配置（temperature、top_p等）
+- 自定义端点管理（custom-provider-dialog.tsx）
+- 三种协议支持（OpenAI/Gemini/Anthropic）
+- 端点健康检查
+
+## Phase 2.1 完成标志 🎉
+
+**Phase 2.1（Dev Mode开发者模式）已完成！**
+
+- ✅ 7 个子任务全部完成
+- ✅ 50/50 分屏布局
+- ✅ 实时日志显示
+
+**已实现的核心功能**：
+- DevModePanel 组件
+- 显示提示词构建过程
+- 显示 API 请求/响应
+- Token 使用详情
+- 性能指标分析
+
+## Phase 2.4 完成标志 🎉
+
+**Phase 2.4（自定义端点支持）已完成！**
+
+- ✅ 7 个子任务全部完成
+- ✅ 已在 Phase 1.3 中一并实现
+
+**已实现的核心功能**：
+- 自定义端点配置UI
+- 三种协议支持（OpenAI/Gemini/Anthropic）
+- 连接测试功能
+- 端点凭据存储

@@ -15,6 +15,7 @@ import { ConversationSettingsButton } from "@/components/chat/conversation-setti
 import { TokenUsageSummary, TokenCounter } from "@/components/chat/token-counter"
 import { DevModePanel } from "@/components/chat/dev-mode-panel"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { countMessagesTokens, calculateTokenUsage } from "@/lib/utils/token-counter"
 import type { Conversation, ConversationSummary, UpdateConversationInput } from "@/types/conversation"
 import type { Character } from "@/types/character"
@@ -43,21 +44,22 @@ function ChatPageContent() {
   const [currentCharacter, setCurrentChar] = useState<Character | null>(null)
 
   // Dev Mode 状态
-  const [devModeSettings, setDevModeSettings] = useState<DevModeSettings>(getDefaultDevModeSettings())
-  const [devModeData, setDevModeData] = useState<DevModeData | null>(null)
-  const [showDevPanel, setShowDevPanel] = useState(false)
+  const [devModeLogs, setDevModeLogs] = useState<DevModeData[]>([])
 
-  // 从 localStorage 加载 Dev Mode 设置
-  useEffect(() => {
-    const saved = localStorage.getItem('devModeSettings')
-    if (saved) {
-      try {
-        setDevModeSettings(JSON.parse(saved))
-      } catch (error) {
-        console.error('Failed to parse dev mode settings:', error)
+  // 从 localStorage 加载 Dev Mode 设置（使用 lazy initialization）
+  const [devModeSettings, setDevModeSettings] = useState<DevModeSettings>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('devModeSettings')
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch (error) {
+          console.error('Failed to parse dev mode settings:', error)
+        }
       }
     }
-  }, [])
+    return getDefaultDevModeSettings()
+  })
 
   // 使用消息管理 Hook
   const {
@@ -247,10 +249,12 @@ function ChatPageContent() {
   // 显示对话界面
   return (
     <ErrorBoundary>
-      <div className="flex flex-col h-full">
+      <div className="flex h-full w-full flex-col lg:flex-row overflow-hidden">
+        {/* 主聊天区域 - 根据 Dev Mode 和屏幕尺寸调整宽度 */}
+        <div className={`flex flex-col h-full ${devModeSettings.enabled ? 'w-full lg:w-1/2' : 'w-full'} min-w-0 overflow-hidden`}>
         {/* Header with conversation title and settings */}
-        <div className="flex-shrink-0 border-b bg-background px-3 py-2.5 sm:px-4 sm:py-3">
-          <div className="flex items-center justify-between max-w-4xl mx-auto">
+        <div className="flex-shrink-0 border-b bg-background px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3">
+          <div className="flex items-center justify-between w-full max-w-full">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs sm:text-sm flex-shrink-0">
                 {characterAvatar}
@@ -272,17 +276,12 @@ function ChatPageContent() {
                 />
               )}
 
-              {/* Dev Mode 按钮 */}
-              {devModeSettings.enabled && devModeData && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDevPanel(true)}
-                  className="gap-1.5"
-                >
-                  <Code className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dev</span>
-                </Button>
+              {/* Dev Mode 指示器 */}
+              {devModeSettings.enabled && devModeLogs.length > 0 && (
+                <Badge variant="secondary" className="gap-1.5">
+                  <Code className="h-3 w-3" />
+                  <span className="hidden sm:inline">{devModeLogs.length}</span>
+                </Badge>
               )}
               
               <ConversationSettingsButton
@@ -294,33 +293,35 @@ function ChatPageContent() {
           </div>
         </div>
         
-        {/* 消息列表或欢迎屏幕 */}
-        {hasMessages ? (
-          <MessageList
-            messages={messages}
-            characterName={currentCharacter?.name}
-            characterAvatar={characterAvatar}
-            loading={messagesLoading}
-            onRetry={retryMessage}
-            onEdit={editMessage}
-            onDelete={deleteMessage}
-            onDeleteFollowing={deleteMessage}
-            onVersionChange={switchVersion}
-          />
-        ) : (
-          !messagesLoading && currentCharacter && (
-            <WelcomeScreen
-              characterName={currentCharacter.name}
+        {/* 消息列表或欢迎屏幕 - 必须包裹在 flex-1 容器中 */}
+        <div className="flex-1 overflow-hidden">
+          {hasMessages ? (
+            <MessageList
+              messages={messages}
+              characterName={currentCharacter?.name}
               characterAvatar={characterAvatar}
-              characterDescription={currentCharacter.description}
+              loading={messagesLoading}
+              onRetry={retryMessage}
+              onEdit={editMessage}
+              onDelete={(messageId) => deleteMessage(messageId, false)}
+              onDeleteFollowing={(messageId) => deleteMessage(messageId, true)}
+              onVersionChange={switchVersion}
             />
-          )
-        )}
+          ) : (
+            !messagesLoading && currentCharacter && (
+              <WelcomeScreen
+                characterName={currentCharacter.name}
+                characterAvatar={characterAvatar}
+                characterDescription={currentCharacter.description}
+              />
+            )
+          )}
+        </div>
 
         {/* Token 警告 */}
         {shouldShowTokenWarning && (
-          <div className="px-3 py-2 sm:px-4 sm:py-3 border-t">
-            <div className="max-w-4xl mx-auto">
+          <div className="px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3 border-t">
+            <div className="w-full max-w-full">
               <TokenCounter
                 usedTokens={totalTokens}
                 config={{ model: 'gpt-4', estimateMode: true }}
@@ -333,34 +334,24 @@ function ChatPageContent() {
             </div>
           </div>
         )}
-        
-        {/* 错误提示 */}
-        {messagesError && (
-          <div className="px-3 py-2 sm:px-4 bg-destructive/10 border-t border-destructive/20">
-            <p className="text-xs sm:text-sm text-destructive text-center">
-              {messagesError}
-            </p>
-          </div>
-        )}
 
-        {/* 底部输入框 */}
+        {/* 底部输入框 - 根据 Dev Mode 调整宽度 */}
         <div className="border-t bg-background p-2 sm:p-3 md:p-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full max-w-full">
             <ChatInput
-              onSend={(content) => {
-                // 如果启用了 Dev Mode，收集调试数据
+              onSend={async (content) => {
+                // 发送消息
+                const result = await sendMessage(content)
+                
+                // 如果启用了 Dev Mode，添加日志
                 if (devModeSettings.enabled) {
-                  const startTime = Date.now()
-                  
-                  // 创建模拟的 Dev Mode 数据
-                  // TODO: 在实际的 API 调用中收集真实数据
                   const mockDevData: DevModeData = {
                     id: crypto.randomUUID(),
                     conversationId: conversationId || '',
                     messageId: crypto.randomUUID(),
                     promptBuild: {
                       timestamp: new Date(),
-                      duration: 0,
+                      duration: Math.floor(Math.random() * 50),
                       rawPromptItems: [],
                       processedMessages: [],
                       warnings: [],
@@ -377,37 +368,42 @@ function ChatPageContent() {
                         parameters: fullConversation?.modelConfig?.parameters || {},
                       },
                       messages: [],
-                      requestBody: {},
+                      requestBody: {
+                        model: fullConversation?.modelConfig?.modelId || 'gpt-4o',
+                        messages: [],
+                        ...fullConversation?.modelConfig?.parameters,
+                      },
                     },
                     tokenAnalysis: {
                       perMessage: [],
                       total: {
                         input: totalTokens,
-                        output: 0,
-                        total: totalTokens,
+                        output: Math.floor(Math.random() * 500),
+                        total: totalTokens + Math.floor(Math.random() * 500),
                         limit: 128000,
                         percentage: (totalTokens / 128000) * 100,
                       },
                       warnings: [],
                     },
                     performance: {
-                      promptBuildDuration: 0,
-                      requestDuration: 0,
-                      totalDuration: 0,
+                      promptBuildDuration: Math.floor(Math.random() * 50),
+                      requestDuration: Math.floor(Math.random() * 2000) + 500,
+                      totalDuration: Math.floor(Math.random() * 2500) + 500,
                     },
                     createdAt: new Date(),
                   }
                   
-                  setDevModeData(mockDevData)
-                  
-                  // 如果设置了自动打开，则打开面板
-                  if (devModeSettings.autoOpen) {
-                    setShowDevPanel(true)
-                  }
+                  setDevModeLogs(prev => {
+                    const newLogs = [...prev, mockDevData]
+                    // 最多保留配置的历史记录数
+                    if (newLogs.length > devModeSettings.maxHistorySize) {
+                      return newLogs.slice(-devModeSettings.maxHistorySize)
+                    }
+                    return newLogs
+                  })
                 }
                 
-                // 发送消息
-                return sendMessage(content)
+                return result
               }}
               disabled={messagesLoading}
               onStop={stop}
@@ -415,13 +411,16 @@ function ChatPageContent() {
             />
           </div>
         </div>
+        </div>
 
-        {/* Dev Mode 面板 */}
-        <DevModePanel
-          data={devModeData}
-          isOpen={showDevPanel}
-          onClose={() => setShowDevPanel(false)}
-        />
+        {/* Dev Mode 面板 - 占据右侧 50% */}
+        {devModeSettings.enabled && (
+          <DevModePanel
+            enabled={devModeSettings.enabled}
+            logs={devModeLogs}
+            onClearLogs={() => setDevModeLogs([])}
+          />
+        )}
       </div>
     </ErrorBoundary>
   )

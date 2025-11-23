@@ -25,19 +25,13 @@ import {
 import {
   Settings,
   FileText,
-  Sparkles,
   Save,
   X,
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import { ConversationPromptConfig as ConversationPromptConfigComponent, mergePromptConfigs } from './conversation-prompt-config';
-import { ModelSelector } from './model-selector';
-import { ModelParameters, type ModelParameters as ModelParametersType } from './model-parameters';
-import type { Conversation, ConversationSummary, UpdateConversationInput, ConversationModelConfig } from '@/types/conversation';
+import type { Conversation, ConversationSummary, UpdateConversationInput } from '@/types/conversation';
 import type { Character } from '@/types/character';
-import type { ConversationPromptConfig } from '@/types/prompt';
-import { getDefaultConversationPromptConfig } from '@/types/prompt';
 import { cn } from '@/lib/utils';
 
 /**
@@ -60,10 +54,9 @@ interface ConversationSettingsDialogProps {
 
 /**
  * 对话设置对话框
- * 
+ *
  * 包含：
  * - 基本信息（标题）
- * - 提示词配置
  * - 高级设置（预留）
  */
 export function ConversationSettingsDialog({
@@ -81,11 +74,7 @@ export function ConversationSettingsDialog({
   
   // 表单状态
   const [title, setTitle] = useState('');
-  const [promptConfig, setPromptConfig] = useState<ConversationPromptConfig>(
-    getDefaultConversationPromptConfig()
-  );
-  const [modelConfig, setModelConfig] = useState<ConversationModelConfig | undefined>(undefined);
-  
+
   // 是否有未保存的更改
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -93,22 +82,6 @@ export function ConversationSettingsDialog({
   useEffect(() => {
     if (conversation && open) {
       setTitle(conversation.title || '');
-      
-      // 类型守卫：检查是否是完整的 Conversation 对象
-      const fullConversation = conversation as Conversation;
-      if (fullConversation.promptConfig) {
-        setPromptConfig(fullConversation.promptConfig);
-      } else {
-        setPromptConfig(getDefaultConversationPromptConfig());
-      }
-      
-      // 加载模型配置
-      if (fullConversation.modelConfig) {
-        setModelConfig(fullConversation.modelConfig);
-      } else {
-        setModelConfig(undefined);
-      }
-      
       setHasChanges(false);
       setError(null);
     }
@@ -120,74 +93,26 @@ export function ConversationSettingsDialog({
     setHasChanges(true);
   }, []);
 
-  // 提示词配置变化
-  const handlePromptConfigChange = useCallback((config: ConversationPromptConfig) => {
-    setPromptConfig(config);
-    setHasChanges(true);
-  }, []);
-
-  // 模型配置变化
-  const handleModelConfigChange = useCallback((value: string) => {
-    if (!value) {
-      setModelConfig(undefined);
-    } else {
-      const [providerId, modelId] = value.split(':');
-      setModelConfig({
-        providerId,
-        modelId,
-        parameters: modelConfig?.parameters // 保留现有参数
-      });
-    }
-    setHasChanges(true);
-  }, [modelConfig?.parameters]);
-
-  // 模型参数变化
-  const handleModelParametersChange = useCallback((params: ModelParametersType) => {
-    setModelConfig(prev => ({
-      providerId: prev?.providerId || '',
-      modelId: prev?.modelId || '',
-      parameters: params,
-    }));
-    setHasChanges(true);
-  }, []);
-
   // 保存
   const handleSave = useCallback(async () => {
     if (!onSave || !conversation) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const updates: UpdateConversationInput = {};
-      
+
       // 只发送有变化的字段
       if (title !== conversation.title) {
         updates.title = title;
       }
-      
-      // 类型守卫：检查是否是完整的 Conversation 对象
-      const fullConversation = conversation as Conversation;
-      const originalConfig = fullConversation.promptConfig;
-      
-      // 比较提示词配置是否有变化
-      const configChanged = JSON.stringify(promptConfig) !== JSON.stringify(originalConfig || getDefaultConversationPromptConfig());
-      if (configChanged) {
-        updates.promptConfig = promptConfig;
-      }
-      
-      // 比较模型配置是否有变化
-      const originalModelConfig = fullConversation.modelConfig;
-      const modelConfigChanged = JSON.stringify(modelConfig) !== JSON.stringify(originalModelConfig);
-      if (modelConfigChanged) {
-        updates.modelConfig = modelConfig;
-      }
-      
+
       // 如果有更改才保存
       if (Object.keys(updates).length > 0) {
         await onSave(updates);
       }
-      
+
       setHasChanges(false);
       setOpen(false);
     } catch (err) {
@@ -196,7 +121,7 @@ export function ConversationSettingsDialog({
     } finally {
       setLoading(false);
     }
-  }, [onSave, conversation, title, promptConfig, modelConfig]);
+  }, [onSave, conversation, title]);
 
   // 取消
   const handleCancel = useCallback(() => {
@@ -238,23 +163,15 @@ export function ConversationSettingsDialog({
             对话设置
           </DialogTitle>
           <DialogDescription>
-            配置此对话的标题、提示词和其他设置
+            配置此对话的标题和其他设置
           </DialogDescription>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="basic" className="flex items-center gap-1">
               <FileText className="h-4 w-4" />
               基本
-            </TabsTrigger>
-            <TabsTrigger value="prompts" className="flex items-center gap-1">
-              <Sparkles className="h-4 w-4" />
-              提示词
-            </TabsTrigger>
-            <TabsTrigger value="model" className="flex items-center gap-1">
-              <Sparkles className="h-4 w-4" />
-              模型
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex items-center gap-1">
               <Settings className="h-4 w-4" />
@@ -322,63 +239,7 @@ export function ConversationSettingsDialog({
                 </div>
               </div>
             </TabsContent>
-            
-            {/* 提示词配置 */}
-            <TabsContent value="prompts" className="mt-0">
-              <ConversationPromptConfigComponent
-                value={promptConfig}
-                onChange={handlePromptConfigChange}
-                characterPromptConfig={character?.promptConfig}
-                characterName={character?.name}
-                readOnly={readOnly || loading}
-              />
-            </TabsContent>
-            
-            {/* 模型配置 */}
-            <TabsContent value="model" className="mt-0 space-y-4">
-              {/* 模型选择 */}
-              <div className="space-y-2">
-                <Label htmlFor="model">AI 模型</Label>
-                <ModelSelector
-                  value={modelConfig ? `${modelConfig.providerId}:${modelConfig.modelId}` : ''}
-                  onValueChange={handleModelConfigChange}
-                  disabled={readOnly || loading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  选择此对话使用的 AI 模型。如果不选择，将使用默认模型。
-                </p>
-              </div>
-              
-              <Separator />
-              
-              {/* 模型参数 */}
-              {modelConfig && (
-                <>
-                  <div className="space-y-2">
-                    <Label>模型参数</Label>
-                    <p className="text-xs text-muted-foreground">
-                      调整模型的生成参数以控制输出质量和风格
-                    </p>
-                  </div>
-                  
-                  <ModelParameters
-                    value={modelConfig.parameters}
-                    onChange={handleModelParametersChange}
-                    disabled={readOnly || loading}
-                  />
-                </>
-              )}
-              
-              {!modelConfig && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Sparkles className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">
-                    请先选择一个模型以配置参数
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-            
+
             {/* 高级设置 */}
             <TabsContent value="advanced" className="mt-0 space-y-4">
               {/* 未来功能提示 */}

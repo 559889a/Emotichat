@@ -63,8 +63,8 @@ export const MessageBubble = memo(function MessageBubble({
   // 用户消息
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end mb-3 md:mb-4 group animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="max-w-[85%] sm:max-w-[80%] md:max-w-[75%] space-y-2">
+      <div className="flex justify-end mb-3 md:mb-4 group animate-in fade-in slide-in-from-bottom-2 duration-300 min-w-0">
+        <div className="max-w-[90%] sm:max-w-[85%] md:max-w-[80%] lg:max-w-[75%] min-w-0 space-y-2">
           {isEditing ? (
             <MessageEditor
               initialContent={message.content}
@@ -74,7 +74,7 @@ export const MessageBubble = memo(function MessageBubble({
             />
           ) : (
             <>
-              <div className="bg-primary text-primary-foreground px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl break-words text-sm sm:text-base transition-all hover:shadow-md active:scale-[0.98]">
+              <div className="bg-primary text-primary-foreground px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl break-words text-sm sm:text-base transition-all hover:shadow-md active:scale-[0.98] overflow-hidden">
                 <MarkdownRenderer content={message.content} className="text-primary-foreground" />
                 {message.isEdited && (
                   <div className="text-xs opacity-70 mt-1">
@@ -98,6 +98,7 @@ export const MessageBubble = memo(function MessageBubble({
                 <MessageActions
                   message={message}
                   onEdit={onEdit ? handleEdit : undefined}
+                  onRegenerate={onRegenerate}
                   onDelete={onDelete}
                   onDeleteFollowing={onDeleteFollowing}
                   onCopy={onCopy}
@@ -113,21 +114,23 @@ export const MessageBubble = memo(function MessageBubble({
 
   // AI 消息
   return (
-    <div className="flex gap-2 sm:gap-3 group mb-3 md:mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 mt-0.5 sm:mt-1">
+    <div className="flex gap-1.5 sm:gap-2 md:gap-3 group mb-3 md:mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300 min-w-0">
+      <Avatar className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 mt-0.5 sm:mt-1">
         <AvatarFallback className="bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm font-medium">
           {characterAvatar || 'AI'}
         </AvatarFallback>
       </Avatar>
-      
-      <div className="flex-1 space-y-1 min-w-0 max-w-[85%] sm:max-w-[80%] md:max-w-[75%]">
+
+      <div className="flex-1 space-y-1 min-w-0 overflow-hidden max-w-full">
         {characterName && (
           <span className="text-xs sm:text-sm text-muted-foreground font-medium">
             {characterName}
           </span>
         )}
-        
-        <MarkdownRenderer content={message.content} />
+
+        <div className="overflow-hidden">
+          <MarkdownRenderer content={message.content} />
+        </div>
 
         {/* 版本选择器 */}
         {message.versions && message.versions.length > 1 && (

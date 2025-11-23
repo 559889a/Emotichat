@@ -7,7 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:phase1": "tsx scripts/test-phase-1-integration.ts"
+    "test:phase1": "tsx scripts/test-phase-1-integration.ts",
+    "test:prompt": "tsx scripts/test-prompt-integration.ts",
+    "test:post-processor": "tsx scripts/test-post-processor.ts",
+    "test:token": "tsx scripts/test-token-counter.ts",
+    "test:lock": "tsx scripts/test-file-lock.ts",
+    "debug:all": "tsx scripts/debug-all.ts",
+    "debug:check": "tsc --noEmit && npm audit",
+    "debug:test": "npm run test:prompt && npm run test:post-processor && npm run test:token && npm run test:lock && npm run test:phase1"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.45",
@@ -46,6 +53,7 @@
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.8"
   },
