@@ -32,6 +32,18 @@
 - [x] Phase -1.3.4: 调整 API 路由 emotichat/app/api/chat/route.ts 以兼容 useChat
 - [x] Phase -1.3.5: 测试流式响应是否正常工作
 - [x] Phase -1.3.6: Git commit: "fix: 重构 AI SDK 集成"
+- [x] Phase 1.0: 开始前必读
+- [x] Phase 1.0.1: 阅读 emotichat/docs/refactoring-plan.md 的 Phase 1 部分
+- [x] Phase 1.1: 实现 Markdown 渲染（已提交 Git: 0648baa）
+- [x] Phase 1.1.1: 安装依赖：react-markdown, remark-gfm, rehype-highlight
+- [x] Phase 1.1.2: 在 emotichat/components/chat/markdown-renderer.tsx 创建渲染器
+- [x] Phase 1.1.3: 实现代码块语法高亮（使用 highlight.js）
+- [x] Phase 1.1.4: 实现 LaTeX 公式渲染（使用 KaTeX）
+- [x] Phase 1.1.5: 实现表格渲染
+- [x] Phase 1.1.6: 实现链接处理（安全性检查）
+- [x] Phase 1.1.7: 在 emotichat/components/chat/message-bubble.tsx 集成 Markdown 渲染
+- [x] Phase 1.1.8: 添加明暗主题适配
+- [x] Phase 1.1.9: Git commit: "feat: 实现 Markdown 渲染"
 
 ---
 
@@ -149,20 +161,6 @@
 ## 待办任务
 
 ### Phase 1: 渲染与UI优化
-
-#### 1.0 开始前必读
-- [ ] 1.0.1: 阅读 emotichat/docs/refactoring-plan.md 的 Phase 1 部分
-
-#### 1.1 实现 Markdown 渲染
-- [ ] 1.1.1: 安装依赖：react-markdown, remark-gfm, rehype-highlight
-- [ ] 1.1.2: 在 emotichat/components/chat/markdown-renderer.tsx 创建渲染器
-- [ ] 1.1.3: 实现代码块语法高亮（使用 highlight.js）
-- [ ] 1.1.4: 实现 LaTeX 公式渲染（使用 KaTeX）
-- [ ] 1.1.5: 实现表格渲染
-- [ ] 1.1.6: 实现链接处理（安全性检查）
-- [ ] 1.1.7: 在 emotichat/components/chat/message-bubble.tsx 集成 Markdown 渲染
-- [ ] 1.1.8: 添加明暗主题适配
-- [ ] 1.1.9: Git commit: "feat: 实现 Markdown 渲染"
 
 #### 1.2 Token 计数器与限制警告
 - [ ] 1.2.1: 安装依赖：tiktoken 或 gpt-tokenizer
@@ -309,11 +307,11 @@
 
 ## 进度统计
 
-- **已完成**: 126 项（包括 Phase 0 全部完成）
+- **已完成**: 136 项（Phase 0 全部完成 + Phase 1.1 完成）
 - **进行中**: 0 项
-- **待办**: 125 项（Phase 1-3）
+- **待办**: 115 项（Phase 1.2-3）
 - **总计**: 251 项
-- **完成率**: 50.2%
+- **完成率**: 54.2%
 
 ---
 
