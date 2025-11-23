@@ -37,6 +37,13 @@ export interface Conversation {
 export interface CreateConversationInput {
   title?: string;                // 可选，默认为"新对话"
   characterId: string;           // 必须关联角色
+  promptConfig?: ConversationPromptConfig; // 可选的提示词配置
+}
+
+// 更新对话输入
+export interface UpdateConversationInput {
+  title?: string;                // 可选，更新标题
+  promptConfig?: ConversationPromptConfig; // 可选，更新提示词配置
 }
 
 // 对话概要（列表展示用）

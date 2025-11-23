@@ -18,6 +18,7 @@ export type {
   Message,
   Conversation,
   CreateConversationInput,
+  UpdateConversationInput,
   ConversationSummary
 } from './conversation';
 
@@ -42,8 +43,14 @@ export type {
   PromptBuildContext,
   ProcessedPromptMessage,
   CreatePromptItemInput,
-  UpdatePromptItemInput
+  UpdatePromptItemInput,
+  PromptInheritanceSource,
+  MergedPromptItem,
+  PromptMergeOptions
 } from './prompt';
+
+// 导出提示词工具函数
+export { getDefaultConversationPromptConfig } from './prompt';
 
 // 记忆相关
 export interface Memory {

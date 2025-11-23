@@ -4,8 +4,16 @@ import {
   Conversation,
   Message,
   CreateConversationInput,
+  UpdateConversationInput,
   ConversationSummary
 } from '@/types';
+import type {
+  ConversationPromptConfig,
+  CharacterPromptConfig,
+  PromptItem,
+  MergedPromptItem
+} from '@/types/prompt';
+import { getDefaultConversationPromptConfig } from '@/types/prompt';
 import { getCharacterById } from './characters';
 import { withFileLock } from './lock';
 
@@ -106,6 +114,7 @@ export async function createConversation(
       title: input.title || '新对话',
       characterId: input.characterId,
       messageCount: 0,
+      promptConfig: input.promptConfig || getDefaultConversationPromptConfig(),
       createdAt: now,
       updatedAt: now,
     };
@@ -136,7 +145,7 @@ export async function createConversation(
  */
 export async function updateConversation(
   id: string,
-  updates: { title?: string }
+  updates: UpdateConversationInput
 ): Promise<Conversation> {
   try {
     await ensureDataDir();
@@ -150,11 +159,21 @@ export async function updateConversation(
         throw new Error(`Conversation ${id} not found`);
       }
       
+      // 构建更新对象
       const updated: Conversation = {
         ...existing,
-        ...updates,
         updatedAt: new Date().toISOString(),
       };
+      
+      // 更新标题
+      if (updates.title !== undefined) {
+        updated.title = updates.title;
+      }
+      
+      // 更新提示词配置
+      if (updates.promptConfig !== undefined) {
+        updated.promptConfig = updates.promptConfig;
+      }
       
       await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');
       

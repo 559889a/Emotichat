@@ -291,6 +291,49 @@ export interface ProcessedPromptMessage {
 }
 
 // ============================================================================
+// 提示词合并相关
+// ============================================================================
+
+/**
+ * 提示词继承源类型
+ */
+export type PromptInheritanceSource = 'character' | 'conversation' | 'preset';
+
+/**
+ * 合并后的提示词项（包含来源信息）
+ */
+export interface MergedPromptItem extends PromptItem {
+  source: PromptInheritanceSource;  // 来源
+  isInherited: boolean;              // 是否继承
+  isOverridden: boolean;             // 是否被覆盖
+  originalId?: string;               // 原始ID（覆盖时）
+}
+
+/**
+ * 提示词合并选项
+ */
+export interface PromptMergeOptions {
+  /** 是否完全覆盖角色提示词（默认false，合并） */
+  overrideCharacter?: boolean;
+  /** 是否完全覆盖预设（默认false，合并） */
+  overridePreset?: boolean;
+  /** 是否包含禁用的提示词（默认false） */
+  includeDisabled?: boolean;
+}
+
+/**
+ * 默认的对话提示词配置
+ */
+export function getDefaultConversationPromptConfig(): ConversationPromptConfig {
+  return {
+    prompts: [],
+    overrideCharacter: false,
+    overridePreset: false,
+    variables: {},
+  };
+}
+
+// ============================================================================
 // 导出类型工具
 // ============================================================================
 

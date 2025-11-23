@@ -5,6 +5,7 @@ import {
   deleteConversation,
   getMessages,
 } from '@/lib/storage/conversations';
+import type { UpdateConversationInput } from '@/types';
 
 /**
  * GET /api/conversations/[id]
@@ -52,7 +53,7 @@ export async function GET(
 
 /**
  * PUT /api/conversations/[id]
- * 更新对话标题
+ * 更新对话信息（标题、提示词配置等）
  */
 export async function PUT(
   request: NextRequest,
@@ -62,30 +63,50 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     
-    // 验证 title 字段
-    if (body.title === undefined) {
+    // 构建更新对象
+    const updates: UpdateConversationInput = {};
+    
+    // 验证并添加 title
+    if (body.title !== undefined) {
+      if (typeof body.title !== 'string' || body.title.trim() === '') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '对话标题不能为空',
+          },
+          { status: 400 }
+        );
+      }
+      updates.title = body.title.trim();
+    }
+    
+    // 验证并添加 promptConfig
+    if (body.promptConfig !== undefined) {
+      // 基本验证：确保 promptConfig 是对象且有 prompts 数组
+      if (typeof body.promptConfig !== 'object' || !Array.isArray(body.promptConfig.prompts)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '提示词配置格式无效',
+          },
+          { status: 400 }
+        );
+      }
+      updates.promptConfig = body.promptConfig;
+    }
+    
+    // 确保至少有一个字段要更新
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: '请提供要更新的标题',
+          error: '请提供要更新的字段',
         },
         { status: 400 }
       );
     }
     
-    if (typeof body.title !== 'string' || body.title.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '对话标题不能为空',
-        },
-        { status: 400 }
-      );
-    }
-    
-    const conversation = await updateConversation(id, {
-      title: body.title.trim(),
-    });
+    const conversation = await updateConversation(id, updates);
     
     return NextResponse.json({
       success: true,

@@ -96,13 +96,13 @@
 - [x] 0.4.11: Git commit: "feat: 实现角色提示词管理"
 
 #### 0.5 实现对话提示词配置
-- [ ] 0.5.1: 在 emotichat/components/chat/conversation-prompt-config.tsx 创建配置
-- [ ] 0.5.2: 实现 Main Prompt 编辑（对话主提示词）
-- [ ] 0.5.3: 实现 Override Prompts 编辑（覆盖角色提示词）
-- [ ] 0.5.4: 实现提示词继承逻辑（从角色继承 + 对话覆盖）
-- [ ] 0.5.5: 在对话设置页面集成提示词配置
-- [ ] 0.5.6: 更新 emotichat/lib/storage/conversations.ts 保存提示词配置
-- [ ] 0.5.7: Git commit: "feat: 实现对话提示词配置"
+- [x] 0.5.1: 在 emotichat/components/chat/conversation-prompt-config.tsx 创建配置
+- [x] 0.5.2: 实现 Main Prompt 编辑（对话主提示词）
+- [x] 0.5.3: 实现 Override Prompts 编辑（覆盖角色提示词）
+- [x] 0.5.4: 实现提示词继承逻辑（从角色继承 + 对话覆盖）
+- [x] 0.5.5: 在对话设置页面集成提示词配置
+- [x] 0.5.6: 更新 emotichat/lib/storage/conversations.ts 保存提示词配置
+- [x] 0.5.7: Git commit: "feat: 实现对话提示词配置"
 
 #### 0.6 实现全局预设管理
 - [ ] 0.6.1: 在 emotichat/app/(main)/settings/prompts/page.tsx 创建预设管理页面

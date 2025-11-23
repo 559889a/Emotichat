@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { MessageSquare, Sparkles } from "lucide-react"
 import { useConversationStore } from "@/stores/conversation"
@@ -11,7 +11,8 @@ import { NewConversationDialog } from "@/components/chat/new-conversation-dialog
 import { WelcomeScreen } from "@/components/chat/welcome-screen"
 import { MessageList } from "@/components/chat/message-list"
 import { ChatInput } from "@/components/chat/chat-input"
-import type { ConversationSummary } from "@/types/conversation"
+import { ConversationSettingsButton } from "@/components/chat/conversation-settings-dialog"
+import type { Conversation, ConversationSummary, UpdateConversationInput } from "@/types/conversation"
 import type { Character } from "@/types/character"
 import ErrorBoundary from "@/components/layout/error-boundary"
 
@@ -32,6 +33,7 @@ function ChatPageContent() {
   const { characters } = useCharacters()
   
   const [currentConversation, setCurrentConv] = useState<ConversationSummary | null>(null)
+  const [fullConversation, setFullConv] = useState<Conversation | null>(null)
   const [currentCharacter, setCurrentChar] = useState<Character | null>(null)
 
   // 使用消息管理 Hook
@@ -48,6 +50,7 @@ function ChatPageContent() {
     autoFetch: true,
   })
 
+  // 获取完整的对话信息（包含 promptConfig）
   useEffect(() => {
     if (conversationId) {
       // 强制重新加载消息
@@ -63,16 +66,53 @@ function ChatPageContent() {
       
       setCurrentConv(conv || null)
       
+      // 获取完整的对话信息
       if (conv) {
+        fetch(`/api/conversations/${conversationId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              setFullConv(data.data)
+            }
+          })
+          .catch(err => console.error('Failed to fetch full conversation:', err))
+        
         const char = characters.find(c => c.id === conv.characterId)
         setCurrentChar(char || null)
       }
     } else {
       setCurrentConversation(null)
       setCurrentConv(null)
+      setFullConv(null)
       setCurrentChar(null)
     }
   }, [conversationId, conversations, characters, setCurrentConversation, fetchMessages, conversationsLoading, refetchConversations])
+  
+  // 保存对话设置
+  const handleSaveConversationSettings = useCallback(async (updates: UpdateConversationInput) => {
+    if (!conversationId) return
+    
+    const response = await fetch(`/api/conversations/${conversationId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    })
+    
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '保存失败')
+    }
+    
+    const data = await response.json()
+    if (data.success) {
+      // 更新本地状态
+      setFullConv(data.data)
+      // 刷新对话列表（标题可能已更改）
+      refetchConversations()
+    }
+  }, [conversationId, refetchConversations])
 
   // 加载状态
   if (conversationsLoading && !currentConversation && conversationId) {
@@ -158,45 +198,68 @@ function ChatPageContent() {
   return (
     <ErrorBoundary>
       <div className="flex flex-col h-full">
-      {/* 消息列表或欢迎屏幕 */}
-      {hasMessages ? (
-        <MessageList
-          messages={messages}
-          characterName={currentCharacter?.name}
-          characterAvatar={characterAvatar}
-          loading={messagesLoading}
-          onRetry={retryMessage}
-        />
-      ) : (
-        !messagesLoading && currentCharacter && (
-          <WelcomeScreen
-            characterName={currentCharacter.name}
+        {/* Header with conversation title and settings */}
+        <div className="flex-shrink-0 border-b bg-background px-4 py-3">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                {characterAvatar}
+              </div>
+              <div>
+                <h2 className="font-semibold text-sm">{currentConversation?.title || '新对话'}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {currentCharacter?.name || '未知角色'}
+                </p>
+              </div>
+            </div>
+            
+            <ConversationSettingsButton
+              conversation={fullConversation}
+              character={currentCharacter}
+              onSave={handleSaveConversationSettings}
+            />
+          </div>
+        </div>
+        
+        {/* 消息列表或欢迎屏幕 */}
+        {hasMessages ? (
+          <MessageList
+            messages={messages}
+            characterName={currentCharacter?.name}
             characterAvatar={characterAvatar}
-            characterDescription={currentCharacter.description}
+            loading={messagesLoading}
+            onRetry={retryMessage}
           />
-        )
-      )}
+        ) : (
+          !messagesLoading && currentCharacter && (
+            <WelcomeScreen
+              characterName={currentCharacter.name}
+              characterAvatar={characterAvatar}
+              characterDescription={currentCharacter.description}
+            />
+          )
+        )}
 
-      {/* 错误提示 */}
-      {messagesError && (
-        <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20">
-          <p className="text-sm text-destructive text-center">
-            {messagesError}
-          </p>
-        </div>
-      )}
+        {/* 错误提示 */}
+        {messagesError && (
+          <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20">
+            <p className="text-sm text-destructive text-center">
+              {messagesError}
+            </p>
+          </div>
+        )}
 
-      {/* 底部输入框 */}
-      <div className="border-t bg-background p-4">
-        <div className="max-w-4xl mx-auto">
-          <ChatInput
-            onSend={sendMessage}
-            disabled={messagesLoading}
-            onStop={stop}
-            placeholder={`向 ${currentCharacter?.name || 'AI'} 发送消息...`}
-          />
+        {/* 底部输入框 */}
+        <div className="border-t bg-background p-4">
+          <div className="max-w-4xl mx-auto">
+            <ChatInput
+              onSend={sendMessage}
+              disabled={messagesLoading}
+              onStop={stop}
+              placeholder={`向 ${currentCharacter?.name || 'AI'} 发送消息...`}
+            />
+          </div>
         </div>
-      </div>
       </div>
     </ErrorBoundary>
   )
