@@ -21,7 +21,13 @@ import { replacePlaceholders } from './placeholders';
 import { expandMacros, createMacroStore, macroStoreToRecord } from './macros';
 import { adaptRoleForProvider, type ProviderType } from './role-adapter';
 import { processInjections } from './injection';
-import { postProcess, filterEmptyMessages } from './post-processor';
+import {
+  postProcess,
+  filterEmptyMessages,
+  advancedPostProcess,
+  DEFAULT_POST_PROCESS_CONFIG
+} from './post-processor';
+import type { PostProcessConfig } from '@/types';
 
 /**
  * 构建选项
@@ -29,6 +35,8 @@ import { postProcess, filterEmptyMessages } from './post-processor';
 export interface BuildPromptOptions {
   /** 是否跳过后处理 */
   skipPostProcess?: boolean;
+  /** 后处理配置 */
+  postProcessConfig?: PostProcessConfig;
   /** 自定义用户名 */
   userName?: string;
   /** 额外的系统变量 */
@@ -43,6 +51,8 @@ export interface BuildPromptResult {
   messages: ProcessedPromptMessage[];
   /** 更新后的宏变量（用于持久化） */
   updatedVariables?: Record<string, string>;
+  /** 后处理警告信息 */
+  warnings?: string[];
 }
 
 /**
@@ -112,19 +122,20 @@ export function buildPromptWithContext(
   processedMessages = adaptRoleForProvider(processedMessages, providerType);
   
   // 10. 后处理
+  let warnings: string[] | undefined;
   if (!options.skipPostProcess) {
-    processedMessages = processedMessages.map(msg => ({
-      ...msg,
-      content: postProcess(msg.content),
-    }));
-    
-    // 过滤空消息
-    processedMessages = filterEmptyMessages(processedMessages);
+    const postProcessResult = advancedPostProcess(
+      processedMessages,
+      options.postProcessConfig || DEFAULT_POST_PROCESS_CONFIG
+    );
+    processedMessages = postProcessResult.messages;
+    warnings = postProcessResult.warnings.length > 0 ? postProcessResult.warnings : undefined;
   }
   
   return {
     messages: processedMessages,
     updatedVariables: macroStoreToRecord(macroStore),
+    warnings,
   };
 }
 

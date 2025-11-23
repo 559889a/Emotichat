@@ -89,6 +89,28 @@ export interface PromptMacro {
 }
 
 /**
+ * 后处理配置接口
+ */
+export interface PostProcessConfig {
+  /** 是否启用消息去重 */
+  enableDeduplication?: boolean;
+  /** 是否启用空消息过滤 */
+  enableEmptyFilter?: boolean;
+  /** 是否启用消息合并（合并连续同角色消息） */
+  enableMerging?: boolean;
+  /** 是否启用格式标准化 */
+  enableFormatting?: boolean;
+  /** 是否启用长度限制检查 */
+  enableLengthCheck?: boolean;
+  /** 单条消息最大长度（字符数，0表示不限制） */
+  maxMessageLength?: number;
+  /** 总消息最大token数（0表示不限制，需要tokenizer） */
+  maxTotalTokens?: number;
+  /** 超长消息处理策略 */
+  lengthExceededStrategy?: 'warn' | 'truncate' | 'error';
+}
+
+/**
  * 提示词项（基础单元）
  * 用于统一提示词编辑器
  */

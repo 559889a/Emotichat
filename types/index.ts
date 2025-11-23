@@ -32,6 +32,7 @@ export type {
   PromptVariable,
   PromptMacro,
   PromptItem,
+  PostProcessConfig,
   ModelParameters,
   ContextLimitConfig,
   PromptPreset,
