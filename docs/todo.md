@@ -59,15 +59,15 @@
 - [x] 0.1.12: Git commit: "feat: 定义提示词系统数据结构"
 
 #### 0.2 实现提示词构建引擎
-- [ ] 0.2.1: 在 emotichat/lib/prompt/builder.ts 创建提示词构建器
-- [ ] 0.2.2: 实现变量替换函数 replaceVariables(template, variables)
-- [ ] 0.2.3: 实现宏展开函数 expandMacros(template, macros)
-- [ ] 0.2.4: 实现楼层排序逻辑（按 depth 和 priority 排序）
-- [ ] 0.2.5: 实现提示词注入逻辑（Character/Depth 注入）
-- [ ] 0.2.6: 实现 Role 自动适配（Gemini: user/model, OpenAI/Claude: system/user/assistant）
-- [ ] 0.2.7: 实现提示词后处理（去除多余空行、格式化）
-- [ ] 0.2.8: 实现主构建函数 buildPrompt(character, conversation, messages)
-- [ ] 0.2.9: 添加单元测试 emotichat/lib/prompt/__tests__/builder.test.ts
+- [x] 0.2.1: 在 emotichat/lib/prompt/builder.ts 创建提示词构建器
+- [x] 0.2.2: 实现变量替换函数 replaceVariables(template, variables)
+- [x] 0.2.3: 实现宏展开函数 expandMacros(template, macros)
+- [x] 0.2.4: 实现楼层排序逻辑（按 depth 和 priority 排序）
+- [x] 0.2.5: 实现提示词注入逻辑（Character/Depth 注入）
+- [x] 0.2.6: 实现 Role 自动适配（Gemini: user/model, OpenAI/Claude: system/user/assistant）
+- [x] 0.2.7: 实现提示词后处理（去除多余空行、格式化）
+- [x] 0.2.8: 实现主构建函数 buildPrompt(character, conversation, messages)
+- [x] 0.2.9: 添加单元测试 emotichat/lib/prompt/__tests__/builder.test.ts
 - [ ] 0.2.10: Git commit: "feat: 实现提示词构建引擎"
 
 #### 0.3 创建统一提示词编辑器组件
