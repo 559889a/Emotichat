@@ -115,6 +115,7 @@ export async function createConversation(
       characterId: input.characterId,
       messageCount: 0,
       promptConfig: input.promptConfig || getDefaultConversationPromptConfig(),
+      modelConfig: input.modelConfig, // Phase 1.3: 保存模型配置
       createdAt: now,
       updatedAt: now,
     };
@@ -173,6 +174,11 @@ export async function updateConversation(
       // 更新提示词配置
       if (updates.promptConfig !== undefined) {
         updated.promptConfig = updates.promptConfig;
+      }
+      
+      // 更新模型配置 (Phase 1.3)
+      if (updates.modelConfig !== undefined) {
+        updated.modelConfig = updates.modelConfig;
       }
       
       await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');

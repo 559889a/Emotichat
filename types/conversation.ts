@@ -15,6 +15,12 @@ export interface Message {
   tokenCount?: number;           // token 数量
 }
 
+// 模型配置（简化版，用于对话存储）
+export interface ConversationModelConfig {
+  providerId: string;            // 提供商 ID（如 'openai', 'google'）
+  modelId: string;               // 模型 ID（如 'gpt-4o', 'gemini-1.5-flash'）
+}
+
 // 对话
 export interface Conversation {
   id: string;                    // UUID
@@ -27,6 +33,9 @@ export interface Conversation {
   // 提示词配置（新提示词系统）
   promptConfig?: ConversationPromptConfig; // 对话级提示词配置（可选）
   
+  // 模型配置（Phase 1.3 新增）
+  modelConfig?: ConversationModelConfig; // 对话使用的模型配置（可选）
+  
   // 元数据
   createdAt: string;             // ISO 8601 时间戳
   updatedAt: string;             // ISO 8601 时间戳
@@ -38,12 +47,14 @@ export interface CreateConversationInput {
   title?: string;                // 可选，默认为"新对话"
   characterId: string;           // 必须关联角色
   promptConfig?: ConversationPromptConfig; // 可选的提示词配置
+  modelConfig?: ConversationModelConfig; // 可选的模型配置
 }
 
 // 更新对话输入
 export interface UpdateConversationInput {
   title?: string;                // 可选，更新标题
   promptConfig?: ConversationPromptConfig; // 可选，更新提示词配置
+  modelConfig?: ConversationModelConfig; // 可选，更新模型配置
 }
 
 // 对话概要（列表展示用）

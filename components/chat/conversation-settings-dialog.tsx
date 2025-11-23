@@ -32,7 +32,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ConversationPromptConfig as ConversationPromptConfigComponent, mergePromptConfigs } from './conversation-prompt-config';
-import type { Conversation, ConversationSummary, UpdateConversationInput } from '@/types/conversation';
+import { ModelSelector } from './model-selector';
+import type { Conversation, ConversationSummary, UpdateConversationInput, ConversationModelConfig } from '@/types/conversation';
 import type { Character } from '@/types/character';
 import type { ConversationPromptConfig } from '@/types/prompt';
 import { getDefaultConversationPromptConfig } from '@/types/prompt';
@@ -82,6 +83,7 @@ export function ConversationSettingsDialog({
   const [promptConfig, setPromptConfig] = useState<ConversationPromptConfig>(
     getDefaultConversationPromptConfig()
   );
+  const [modelConfig, setModelConfig] = useState<ConversationModelConfig | undefined>(undefined);
   
   // 是否有未保存的更改
   const [hasChanges, setHasChanges] = useState(false);
@@ -99,6 +101,13 @@ export function ConversationSettingsDialog({
         setPromptConfig(getDefaultConversationPromptConfig());
       }
       
+      // 加载模型配置
+      if (fullConversation.modelConfig) {
+        setModelConfig(fullConversation.modelConfig);
+      } else {
+        setModelConfig(undefined);
+      }
+      
       setHasChanges(false);
       setError(null);
     }
@@ -113,6 +122,17 @@ export function ConversationSettingsDialog({
   // 提示词配置变化
   const handlePromptConfigChange = useCallback((config: ConversationPromptConfig) => {
     setPromptConfig(config);
+    setHasChanges(true);
+  }, []);
+
+  // 模型配置变化
+  const handleModelConfigChange = useCallback((value: string) => {
+    if (!value) {
+      setModelConfig(undefined);
+    } else {
+      const [providerId, modelId] = value.split(':');
+      setModelConfig({ providerId, modelId });
+    }
     setHasChanges(true);
   }, []);
 
@@ -141,6 +161,13 @@ export function ConversationSettingsDialog({
         updates.promptConfig = promptConfig;
       }
       
+      // 比较模型配置是否有变化
+      const originalModelConfig = fullConversation.modelConfig;
+      const modelConfigChanged = JSON.stringify(modelConfig) !== JSON.stringify(originalModelConfig);
+      if (modelConfigChanged) {
+        updates.modelConfig = modelConfig;
+      }
+      
       // 如果有更改才保存
       if (Object.keys(updates).length > 0) {
         await onSave(updates);
@@ -154,7 +181,7 @@ export function ConversationSettingsDialog({
     } finally {
       setLoading(false);
     }
-  }, [onSave, conversation, title, promptConfig]);
+  }, [onSave, conversation, title, promptConfig, modelConfig]);
 
   // 取消
   const handleCancel = useCallback(() => {
@@ -290,17 +317,28 @@ export function ConversationSettingsDialog({
             
             {/* 高级设置 */}
             <TabsContent value="advanced" className="mt-0 space-y-4">
-              <div className="text-center py-12 text-muted-foreground">
-                <Settings className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-lg font-medium">高级设置</p>
-                <p className="text-sm mt-1">
-                  模型选择、参数调整等功能将在后续版本中提供
+              {/* 模型选择 */}
+              <div className="space-y-2">
+                <Label htmlFor="model">AI 模型</Label>
+                <ModelSelector
+                  value={modelConfig ? `${modelConfig.providerId}:${modelConfig.modelId}` : ''}
+                  onValueChange={handleModelConfigChange}
+                  disabled={readOnly || loading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  选择此对话使用的 AI 模型。如果不选择，将使用默认模型。
                 </p>
               </div>
               
-              {/* 预留：模型选择 */}
-              {/* 预留：温度、top_p 等参数 */}
-              {/* 预留：上下文长度限制 */}
+              <Separator />
+              
+              {/* 未来功能提示 */}
+              <div className="text-center py-8 text-muted-foreground">
+                <Sparkles className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">
+                  更多高级设置（温度、top_p、上下文长度等）将在后续版本中提供
+                </p>
+              </div>
             </TabsContent>
           </ScrollArea>
         </Tabs>
