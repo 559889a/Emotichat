@@ -93,7 +93,7 @@
 - [x] 0.4.8: 实现深度选择器（顶部/底部等位置）
 - [x] 0.4.9: 在 emotichat/components/character/character-form.tsx 集成提示词配置
 - [x] 0.4.10: 更新 emotichat/lib/storage/characters.ts 保存提示词配置
-- [ ] 0.4.11: Git commit: "feat: 实现角色提示词管理"
+- [x] 0.4.11: Git commit: "feat: 实现角色提示词管理"
 
 #### 0.5 实现对话提示词配置
 - [ ] 0.5.1: 在 emotichat/components/chat/conversation-prompt-config.tsx 创建配置
@@ -306,8 +306,8 @@
 
 ## 进度统计
 
-- **已完成**: 34 项
-- **进行中**: 82 项（Phase 0）
+- **已完成**: 35 项
+- **进行中**: 81 项（Phase 0）
 - **待办**: 125 项（Phase 1-3）
 - **总计**: 241 项
 - **完成率**: 14.1%
