@@ -29,6 +29,7 @@
     "ai": "^5.0.99",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "js-tiktoken": "^1.0.21",
     "katex": "^0.16.25",
     "lucide-react": "^0.554.0",
     "next": "16.0.3",

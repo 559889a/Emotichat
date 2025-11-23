@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent } from 'react';
+import { useState, useRef, KeyboardEvent, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Send, Loader2, Square } from 'lucide-react';
+import { InlineTokenCounter } from './token-counter';
+import { countTokens } from '@/lib/utils/token-counter';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -62,6 +64,11 @@ export function ChatInput({
 
   const isDisabled = disabled || isSending;
   const canSend = content.trim().length > 0 && !isDisabled;
+  
+  // 计算当前输入的 token 数
+  const inputTokens = useMemo(() => {
+    return content.trim() ? countTokens(content, { estimateMode: true }) : 0;
+  }, [content]);
 
   return (
     <div className="border rounded-2xl bg-background shadow-sm hover:shadow-md transition-shadow">
@@ -77,7 +84,11 @@ export function ChatInput({
       />
       
       <div className="flex items-center justify-between px-3 py-2 border-t">
-        <div className="flex gap-1">
+        <div className="flex items-center gap-3">
+          {inputTokens > 0 && (
+            <InlineTokenCounter tokenCount={inputTokens} />
+          )}
+          <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -87,6 +98,7 @@ export function ChatInput({
           >
             <Plus className="h-4 w-4" />
           </Button>
+          </div>
         </div>
 
         {isSending && onStop ? (

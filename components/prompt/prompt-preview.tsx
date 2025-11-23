@@ -10,6 +10,7 @@ import { Eye, Hash, AlertCircle } from 'lucide-react';
 import { replaceVariables, getCurrentSystemVariables } from '@/lib/prompt/variables';
 import { replacePlaceholders } from '@/lib/prompt/placeholders';
 import { expandMacros, createMacroStore } from '@/lib/prompt/macros';
+import { countTokens } from '@/lib/utils/token-counter';
 import type { PromptItem, PromptRole, PromptBuildContext } from '@/types/prompt';
 import { cn } from '@/lib/utils';
 
@@ -26,24 +27,13 @@ interface PromptPreviewProps {
 
 /**
  * 估算 Token 数量
- * 简单估算：字符数 / 4（适用于英文）
- * 中文字符通常 1-2 token，这里用字符数 / 2 估算
+ * 使用统一的 token-counter 工具
  * @param text - 文本内容
- * @returns 估算的 token 数量
+ * @param model - 模型名称（可选）
+ * @returns Token 数量
  */
-function estimateTokenCount(text: string): number {
-  if (!text) return 0;
-  
-  // 分离中文和非中文字符
-  const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
-  const otherChars = text.replace(/[\u4e00-\u9fa5]/g, '');
-  
-  // 中文：平均 1.5 token/字符
-  // 英文等：平均 4 字符/token
-  const chineseTokens = chineseChars.length * 1.5;
-  const otherTokens = otherChars.length / 4;
-  
-  return Math.ceil(chineseTokens + otherTokens);
+function estimateTokenCount(text: string, model: string = 'gpt-4'): number {
+  return countTokens(text, { model, estimateMode: true });
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState, useCallback } from "react"
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { MessageSquare, Sparkles } from "lucide-react"
 import { useConversationStore } from "@/stores/conversation"
@@ -12,6 +12,8 @@ import { WelcomeScreen } from "@/components/chat/welcome-screen"
 import { MessageList } from "@/components/chat/message-list"
 import { ChatInput } from "@/components/chat/chat-input"
 import { ConversationSettingsButton } from "@/components/chat/conversation-settings-dialog"
+import { TokenUsageSummary, TokenCounter } from "@/components/chat/token-counter"
+import { countMessagesTokens, calculateTokenUsage } from "@/lib/utils/token-counter"
 import type { Conversation, ConversationSummary, UpdateConversationInput } from "@/types/conversation"
 import type { Character } from "@/types/character"
 import ErrorBoundary from "@/components/layout/error-boundary"
@@ -113,6 +115,30 @@ function ChatPageContent() {
       refetchConversations()
     }
   }, [conversationId, refetchConversations])
+  
+  // 计算总 token 数和使用情况
+  const totalTokens = useMemo(() => {
+    return countMessagesTokens(messages, { estimateMode: true });
+  }, [messages]);
+  
+  const tokenUsage = useMemo(() => {
+    return calculateTokenUsage(totalTokens, { model: 'gpt-4', estimateMode: true });
+  }, [totalTokens]);
+  
+  // 是否显示警告
+  const shouldShowTokenWarning = tokenUsage.warningLevel !== 'safe';
+  
+  // 清理旧消息的处理函数
+  const handleCleanupMessages = useCallback(async () => {
+    if (!conversationId || messages.length === 0) return;
+    
+    // 保留最近的 10 条消息
+    const messagesToKeep = messages.slice(-10);
+    
+    // 这里应该调用 API 来更新消息列表
+    // 暂时只是重新获取消息
+    await fetchMessages(conversationId);
+  }, [conversationId, messages, fetchMessages]);
 
   // 加载状态
   if (conversationsLoading && !currentConversation && conversationId) {
@@ -213,11 +239,21 @@ function ChatPageContent() {
               </div>
             </div>
             
-            <ConversationSettingsButton
-              conversation={fullConversation}
-              character={currentCharacter}
-              onSave={handleSaveConversationSettings}
-            />
+            <div className="flex items-center gap-2">
+              {/* Token 使用摘要 */}
+              {messages.length > 0 && (
+                <TokenUsageSummary
+                  usedTokens={totalTokens}
+                  config={{ model: 'gpt-4', estimateMode: true }}
+                />
+              )}
+              
+              <ConversationSettingsButton
+                conversation={fullConversation}
+                character={currentCharacter}
+                onSave={handleSaveConversationSettings}
+              />
+            </div>
           </div>
         </div>
         
@@ -240,6 +276,23 @@ function ChatPageContent() {
           )
         )}
 
+        {/* Token 警告 */}
+        {shouldShowTokenWarning && (
+          <div className="px-4 py-3 border-t">
+            <div className="max-w-4xl mx-auto">
+              <TokenCounter
+                usedTokens={totalTokens}
+                config={{ model: 'gpt-4', estimateMode: true }}
+                showDetails={false}
+                showWarning={true}
+                showCleanupSuggestion={true}
+                onCleanup={handleCleanupMessages}
+                compact={false}
+              />
+            </div>
+          </div>
+        )}
+        
         {/* 错误提示 */}
         {messagesError && (
           <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20">
