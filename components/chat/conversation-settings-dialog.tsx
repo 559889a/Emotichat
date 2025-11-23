@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { ConversationPromptConfig as ConversationPromptConfigComponent, mergePromptConfigs } from './conversation-prompt-config';
 import { ModelSelector } from './model-selector';
+import { ModelParameters, type ModelParameters as ModelParametersType } from './model-parameters';
 import type { Conversation, ConversationSummary, UpdateConversationInput, ConversationModelConfig } from '@/types/conversation';
 import type { Character } from '@/types/character';
 import type { ConversationPromptConfig } from '@/types/prompt';
@@ -131,8 +132,22 @@ export function ConversationSettingsDialog({
       setModelConfig(undefined);
     } else {
       const [providerId, modelId] = value.split(':');
-      setModelConfig({ providerId, modelId });
+      setModelConfig({
+        providerId,
+        modelId,
+        parameters: modelConfig?.parameters // 保留现有参数
+      });
     }
+    setHasChanges(true);
+  }, [modelConfig?.parameters]);
+
+  // 模型参数变化
+  const handleModelParametersChange = useCallback((params: ModelParametersType) => {
+    setModelConfig(prev => ({
+      providerId: prev?.providerId || '',
+      modelId: prev?.modelId || '',
+      parameters: params,
+    }));
     setHasChanges(true);
   }, []);
 
@@ -228,18 +243,22 @@ export function ConversationSettingsDialog({
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic" className="flex items-center gap-1">
               <FileText className="h-4 w-4" />
-              基本信息
+              基本
             </TabsTrigger>
             <TabsTrigger value="prompts" className="flex items-center gap-1">
               <Sparkles className="h-4 w-4" />
               提示词
             </TabsTrigger>
+            <TabsTrigger value="model" className="flex items-center gap-1">
+              <Sparkles className="h-4 w-4" />
+              模型
+            </TabsTrigger>
             <TabsTrigger value="advanced" className="flex items-center gap-1">
               <Settings className="h-4 w-4" />
-              高级设置
+              高级
             </TabsTrigger>
           </TabsList>
           
@@ -315,8 +334,8 @@ export function ConversationSettingsDialog({
               />
             </TabsContent>
             
-            {/* 高级设置 */}
-            <TabsContent value="advanced" className="mt-0 space-y-4">
+            {/* 模型配置 */}
+            <TabsContent value="model" className="mt-0 space-y-4">
               {/* 模型选择 */}
               <div className="space-y-2">
                 <Label htmlFor="model">AI 模型</Label>
@@ -332,11 +351,41 @@ export function ConversationSettingsDialog({
               
               <Separator />
               
+              {/* 模型参数 */}
+              {modelConfig && (
+                <>
+                  <div className="space-y-2">
+                    <Label>模型参数</Label>
+                    <p className="text-xs text-muted-foreground">
+                      调整模型的生成参数以控制输出质量和风格
+                    </p>
+                  </div>
+                  
+                  <ModelParameters
+                    value={modelConfig.parameters}
+                    onChange={handleModelParametersChange}
+                    disabled={readOnly || loading}
+                  />
+                </>
+              )}
+              
+              {!modelConfig && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Sparkles className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">
+                    请先选择一个模型以配置参数
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+            
+            {/* 高级设置 */}
+            <TabsContent value="advanced" className="mt-0 space-y-4">
               {/* 未来功能提示 */}
               <div className="text-center py-8 text-muted-foreground">
-                <Sparkles className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <Settings className="h-10 w-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">
-                  更多高级设置（温度、top_p、上下文长度等）将在后续版本中提供
+                  更多高级设置（上下文长度、记忆管理等）将在后续版本中提供
                 </p>
               </div>
             </TabsContent>

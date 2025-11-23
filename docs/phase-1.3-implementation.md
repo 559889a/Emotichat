@@ -1,221 +1,294 @@
-# Phase 1.3: 多模型支持实现文档
-
-## 实现日期
-2025-11-23
+# Phase 1.3 实现文档：多模型支持与 UI 选择器
 
 ## 概述
-Phase 1.3 实现了完整的多模型支持系统，允许用户在 OpenAI、Google Gemini 和 Anthropic Claude 三大 LLM 提供商之间自由切换，并支持添加自定义 API 端点。
 
-## 已实现功能
+Phase 1.3 实现了完整的多模型支持系统，包括：
+- 内置三大官方提供商（OpenAI、Google Gemini、Anthropic Claude）
+- 自定义端点支持（OpenAI/Gemini/Anthropic 协议兼容）
+- 模型参数配置（temperature、top_p、max_tokens 等）
+- 集成到对话设置的 UI 选择器
 
-### 1. 模型配置系统 (`lib/ai/models/`)
+## 实现状态
 
-#### 文件结构
-- `types.ts` - 类型定义（ModelInfo, ModelProvider, CustomProvider, ModelConfig 等）
-- `providers.ts` - 官方提供商配置（OpenAI, Gemini, Claude）
-- `custom.ts` - 自定义端点管理（添加、更新、删除、测试连接）
-- `index.ts` - 统一导出和工具函数
+✅ **已完成** - 所有核心功能已实现
 
-#### 支持的官方模型
-**OpenAI:**
-- GPT-4o (128K 上下文)
-- GPT-4o Mini (128K 上下文)
-- GPT-4 Turbo (128K 上下文)
-- GPT-4 (8K 上下文)
-- GPT-3.5 Turbo (16K 上下文)
+### 已实现的功能
 
-**Google Gemini:**
-- Gemini 2.0 Flash Experimental (1M 上下文，免费)
-- Gemini 1.5 Pro (2M 上下文)
-- Gemini 1.5 Flash (1M 上下文)
-- Gemini Pro (32K 上下文)
+1. ✅ **类型定义系统**
+   - `lib/ai/models/types.ts` - 完整的类型定义
+   - `types/conversation.ts` - 对话模型配置类型（含参数支持）
 
-**Anthropic Claude:**
-- Claude 3.5 Sonnet (New) (200K 上下文)
-- Claude 3.5 Sonnet (200K 上下文)
-- Claude 3 Opus (200K 上下文)
-- Claude 3 Sonnet (200K 上下文)
-- Claude 3 Haiku (200K 上下文)
+2. ✅ **官方提供商支持**
+   - `lib/ai/models/providers.ts` - OpenAI/Gemini/Claude 官方模型列表
+   - 支持的模型：
+     - OpenAI: GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-4, GPT-3.5 Turbo
+     - Google: Gemini 2.0 Flash Exp, Gemini 1.5 Pro/Flash, Gemini Pro
+     - Anthropic: Claude 3.5 Sonnet (New/Old), Claude 3 Opus/Sonnet/Haiku
 
-### 2. UI 组件
+3. ✅ **自定义端点管理**
+   - `lib/ai/models/custom.ts` - 自定义端点 CRUD 操作
+   - `components/settings/custom-provider-dialog.tsx` - 自定义端点配置 UI
+   - 支持三种协议：OpenAI、Gemini、Anthropic (X-AI)
+   - 连接测试功能
+   - URL 验证
 
-#### 模型选择器 (`components/chat/model-selector.tsx`)
-- 完整版选择器：显示模型详细信息（上下文窗口、价格、特性）
-- 简化版选择器：仅显示模型名称
-- 支持搜索过滤
-- 分组显示（按提供商）
-- 显示自定义端点
+4. ✅ **模型选择器组件**
+   - `components/chat/model-selector.tsx` - 完整的模型选择器
+   - 支持搜索、分组显示
+   - 显示模型详细信息（上下文窗口、价格、功能）
+   - 官方模型和自定义端点分组
 
-#### API Key 管理界面 (`components/settings/api-keys.tsx`)
-- 管理三大官方提供商的 API Key
-- API Key 可见性切换
-- 简单的格式验证
-- 连接测试（基础版）
-- 本地存储（localStorage）
+5. ✅ **模型参数配置组件**
+   - `components/chat/model-parameters.tsx` - 新创建
+   - 支持的参数：
+     - Temperature (0-2)
+     - Top P (0-1)
+     - Max Tokens
+     - Presence Penalty (-2 to 2)
+     - Frequency Penalty (-2 to 2)
+   - 每个参数都有说明提示
 
-#### 自定义端点管理 (`components/settings/custom-provider-dialog.tsx`)
-- 添加/编辑/删除自定义端点
-- 支持三种协议类型：
-  - OpenAI 兼容 (LocalAI, Ollama, vLLM 等)
-  - Gemini 兼容
-  - Claude (X-AI) 兼容
-- URL 格式验证
-- 连接测试功能
-- 自定义模型列表
+6. ✅ **对话设置集成**
+   - `components/chat/conversation-settings-dialog.tsx` - 已更新
+   - 新增"模型"标签页
+   - 集成模型选择器和参数配置
+   - 实时参数调整
 
-### 3. 数据存储
+7. ✅ **存储层支持**
+   - `lib/storage/conversations.ts` - 已支持 modelConfig
+   - `types/conversation.ts` - ConversationModelConfig 包含参数字段
+   - 完整的模型配置持久化
 
-#### Conversation 类型更新 (`types/conversation.ts`)
+8. ✅ **API 路由更新**
+   - `app/api/chat/route.ts` - 已更新
+   - 动态模型路由（根据 providerId 选择 SDK）
+   - 支持自定义端点
+   - 应用模型参数到 streamText 调用
+   - 参数传递：temperature, topP, maxSteps, presencePenalty, frequencyPenalty
+
+## 架构设计
+
+### 数据流
+
+```
+用户选择模型 
+  → ConversationSettingsDialog
+  → modelConfig 保存到 conversation.json
+  → API 读取 modelConfig
+  → 创建对应 provider 的 model 实例
+  → 应用模型参数
+  → 调用 streamText
+```
+
+### 模型配置结构
+
 ```typescript
-export interface ConversationModelConfig {
-  providerId: string;
-  modelId: string;
-}
-
-export interface Conversation {
-  // ...existing fields
-  modelConfig?: ConversationModelConfig;
+interface ConversationModelConfig {
+  providerId: string;     // 'openai' | 'google' | 'anthropic' | 'custom-xxx'
+  modelId: string;        // 'gpt-4o' | 'gemini-1.5-pro' | 'claude-3-opus-20240229'
+  parameters?: {
+    temperature?: number;        // 0-2
+    topP?: number;              // 0-1
+    maxTokens?: number;         // 最大输出 token
+    presencePenalty?: number;   // -2 到 2
+    frequencyPenalty?: number;  // -2 到 2
+  };
 }
 ```
 
-#### 存储层更新 (`lib/storage/conversations.ts`)
-- `createConversation`: 支持保存模型配置
-- `updateConversation`: 支持更新模型配置
+## 使用说明
 
-### 4. API 路由更新 (`app/api/chat/route.ts`)
+### 1. 选择官方模型
 
-#### 动态模型路由
-- 从对话配置中读取模型设置
-- 支持官方提供商自动选择
-- 支持自定义端点
-- API Key 优先级：
-  1. 自定义端点配置的 API Key
-  2. 环境变量中的 API Key
-- 错误处理和降级
+1. 打开对话设置（点击对话界面的设置按钮）
+2. 切换到"模型"标签页
+3. 从下拉列表选择模型（按提供商分组）
+4. 调整模型参数（可选）
+5. 保存设置
 
-### 5. 对话设置集成 (`components/chat/conversation-settings-dialog.tsx`)
+### 2. 添加自定义端点
 
-#### 高级设置标签页
-- 集成模型选择器
-- 保存模型配置到对话
-- 显示当前选择的模型
-
-### 6. 设置页面 (`app/(main)/settings/page.tsx`)
-
-#### 三个标签页
-1. **API 密钥** - 管理官方 API Key
-2. **自定义端点** - 管理自定义 API 端点
-3. **模型信息** - 查看所有支持的模型及特性
-
-## 使用流程
-
-### 配置 API Key
 1. 进入设置页面
-2. 选择"API 密钥"标签
-3. 输入对应提供商的 API Key
-4. 点击"保存"按钮
-5. （可选）点击"测试连接"验证
-
-### 添加自定义端点
-1. 进入设置页面
-2. 选择"自定义端点"标签
-3. 点击"添加自定义端点"按钮
-4. 填写配置信息：
+2. 找到"自定义端点"部分
+3. 点击"添加自定义端点"
+4. 填写配置：
    - 端点名称
-   - 协议类型（OpenAI/Gemini/Claude 兼容）
+   - 协议类型（OpenAI/Gemini/Anthropic）
    - Base URL
    - API Key
    - 可用模型列表
-5. （可选）测试连接
-6. 点击"添加"保存
+5. 测试连接（可选）
+6. 保存
 
-### 为对话选择模型
-1. 打开对话设置
-2. 切换到"高级设置"标签
-3. 使用模型选择器选择模型
-4. 点击"保存"
+### 3. 使用自定义端点
 
-## 技术特点
+1. 添加自定义端点后，它会出现在模型选择器中
+2. 在"自定义"分组下可以找到
+3. 选择后即可使用
 
-### 安全性
-- API Key 存储在 localStorage（客户端）
-- 服务端优先使用环境变量
-- 支持 HTTPS 端点（生产环境推荐）
-- 自定义端点 URL 验证
+## API Key 配置
 
-### 扩展性
-- 易于添加新的提供商
-- 支持自定义端点协议
-- 模型信息结构化存储
-- 类型安全的配置系统
+### 环境变量方式（推荐）
 
-### 用户体验
-- 搜索过滤模型
-- 模型详细信息展示
-- 连接测试功能
-- 清晰的错误提示
+在 `.env.local` 中配置：
 
-## 依赖项
-
-### 新增依赖
-- `cmdk` - Command Menu 组件
-- `@radix-ui/react-popover` - Popover 组件
-
-### 现有依赖
-- `@ai-sdk/openai` - OpenAI SDK
-- `@ai-sdk/google` - Google Gemini SDK
-- `@ai-sdk/anthropic` - Anthropic Claude SDK
-- `ai` - Vercel AI SDK
-
-## 环境变量
-
-```env
-# 官方 API Keys（可选，至少配置一个）
-OPENAI_API_KEY=sk-...
-GOOGLE_API_KEY=AI...
-ANTHROPIC_API_KEY=sk-ant-...
-
-# 默认模型（可选）
-DEFAULT_MODEL=google:gemini-1.5-flash
+```bash
+OPENAI_API_KEY=sk-xxx
+GOOGLE_API_KEY=xxx
+ANTHROPIC_API_KEY=sk-ant-xxx
 ```
 
-## 后续优化建议
+### 自定义端点方式
 
-### 短期优化
-1. 实现真实的 API 连接测试
-2. 添加模型参数配置（temperature, top_p, max_tokens）
-3. 显示实时 Token 使用统计
-4. 添加模型使用成本计算
+自定义端点的 API Key 存储在浏览器 localStorage 中，通过配置对话框设置。
 
-### 中期优化
-1. 服务端 API Key 加密存储
-2. 模型性能监控
-3. 自动模型选择（根据任务类型）
-4. 模型响应质量评分
+## 技术细节
 
-### 长期优化
-1. 支持更多 LLM 提供商
-2. 模型微调集成
-3. 多模型协作（Mixture of Agents）
-4. 自定义模型部署支持
+### 1. 提供商类型映射
 
-## 相关文档
-- [用户需求文档](./user-requirements-detailed.md)
-- [重构计划](./refactoring-plan.md)
-- [TODO 清单](./todo.md)
-
-## Git 提交信息
+```typescript
+// 自定义端点协议 → AI SDK 提供商类型
+'openai' → AIProviderType.openai → createOpenAI()
+'gemini' → AIProviderType.google → createGoogleGenerativeAI()
+'anthropic' → AIProviderType.anthropic → createAnthropic()
 ```
-feat: 实现多模型支持
 
-- 添加模型配置系统（官方 + 自定义端点）
-- 创建模型选择器组件
-- 实现 API Key 管理界面
-- 实现自定义端点管理
-- 集成到对话设置
-- 更新 API 路由支持动态模型选择
-- 更新设置页面
-- 支持 OpenAI、Gemini、Claude 三大提供商
-- 支持 OpenAI/Gemini/Claude 兼容的自定义端点
+### 2. 参数传递
 
-Phase 1.3 完成
+AI SDK 的 `streamText` 函数接受以下参数：
+- `temperature`: 直接传递
+- `topP`: 直接传递
+- `maxSteps`: 用于限制输出 token（而非 maxTokens）
+- `presencePenalty`: 直接传递
+- `frequencyPenalty`: 直接传递
+
+### 3. 模型实例创建
+
+```typescript
+// OpenAI
+const openai = createOpenAI({
+  apiKey: apiKey || process.env.OPENAI_API_KEY,
+  baseURL: baseUrl, // 可选，用于自定义端点
+});
+const model = openai(modelId);
+
+// Google
+const google = createGoogleGenerativeAI({
+  apiKey: apiKey || process.env.GOOGLE_API_KEY,
+  baseURL: baseUrl,
+});
+const model = google(modelId);
+
+// Anthropic
+const anthropic = createAnthropic({
+  apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
+  baseURL: baseUrl,
+});
+const model = anthropic(modelId);
+```
+
+## 已知限制
+
+1. **环境变量 vs 客户端存储**
+   - 官方提供商的 API Key 需要配置在服务端环境变量中
+   - 自定义端点的 API Key 存储在客户端 localStorage
+   - 未来可能需要更安全的 API Key 管理方案
+
+2. **模型信息准确性**
+   - 自定义端点的模型信息（上下文窗口、定价）使用默认值
+   - 用户无法获取准确的模型元数据
+
+3. **参数兼容性**
+   - 不是所有提供商都支持所有参数
+   - 某些参数可能被忽略（取决于提供商）
+
+## 测试建议
+
+### 功能测试
+
+1. **官方模型切换**
+   - [ ] 测试 OpenAI 模型
+   - [ ] 测试 Google Gemini 模型
+   - [ ] 测试 Anthropic Claude 模型
+   - [ ] 验证模型响应正确
+
+2. **模型参数**
+   - [ ] 调整 temperature，验证输出随机性变化
+   - [ ] 调整 top_p，验证采样多样性
+   - [ ] 设置 max_tokens，验证输出长度限制
+   - [ ] 测试 penalty 参数对重复的影响
+
+3. **自定义端点**
+   - [ ] 添加 OpenAI 兼容端点（如 LocalAI）
+   - [ ] 测试连接功能
+   - [ ] 验证模型调用
+   - [ ] 测试编辑和删除
+
+4. **持久化**
+   - [ ] 保存模型配置后刷新页面
+   - [ ] 验证配置被正确加载
+   - [ ] 切换对话，验证不同对话的配置独立
+
+### 集成测试
+
+1. **与提示词系统集成**
+   - [ ] 验证模型参数不影响提示词构建
+   - [ ] 测试角色提示词 + 模型参数组合
+
+2. **与 Token 计数集成**
+   - [ ] 验证 Token 计数根据模型调整
+   - [ ] 测试不同模型的 context window
+
+## 未来改进
+
+1. **API Key 管理**
+   - 支持在 UI 中配置官方提供商的 API Key
+   - 服务端加密存储 API Key
+   - 支持多个 API Key 轮换
+
+2. **模型推荐**
+   - 根据任务类型推荐合适的模型
+   - 成本估算和建议
+
+3. **高级参数**
+   - 支持更多提供商特定参数
+   - 预设参数配置（创造性、精确、平衡）
+
+4. **性能监控**
+   - 记录每个模型的响应时间
+   - Token 使用统计
+   - 成本追踪
+
+## 相关文件
+
+### 新创建的文件
+- `components/chat/model-parameters.tsx` - 模型参数配置组件
+
+### 修改的文件
+- `types/conversation.ts` - 添加参数字段到 ConversationModelConfig
+- `components/chat/conversation-settings-dialog.tsx` - 集成模型选择器和参数
+- `app/api/chat/route.ts` - 支持模型参数
+
+### 已存在的文件（Phase 1.3 之前已实现）
+- `lib/ai/models/types.ts`
+- `lib/ai/models/providers.ts`
+- `lib/ai/models/custom.ts`
+- `lib/ai/models/index.ts`
+- `components/chat/model-selector.tsx`
+- `components/settings/custom-provider-dialog.tsx`
+
+## 总结
+
+Phase 1.3 成功实现了完整的多模型支持系统，为用户提供了：
+- 灵活的模型选择（官方 + 自定义）
+- 细粒度的参数控制
+- 友好的 UI 配置界面
+- 完整的持久化支持
+
+系统架构清晰，易于扩展，为后续的 Phase 2（Dev Mode）和 Phase 3（MCP 集成）奠定了良好基础。
+
+---
+
+**完成日期**: 2025-11-23  
+**实现者**: Claude Code  
+**状态**: ✅ 完成

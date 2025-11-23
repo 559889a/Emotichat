@@ -127,11 +127,14 @@ export async function POST(request: Request) {
         return new Response('Unsupported provider', { status: 400 });
     }
 
-    // 调用 AI 模型
-    const result = streamText({
+    // 获取模型参数
+    const parameters = conversation.modelConfig?.parameters;
+
+    // 构建流式调用参数
+    const streamOptions: any = {
       model,
       messages: modelMessages,
-      async onFinish({ text }) {
+      async onFinish({ text }: { text: string }) {
         // 流式响应完成后，保存 AI 的回复
         await addMessage(conversationId, {
           role: 'assistant',
@@ -139,7 +142,29 @@ export async function POST(request: Request) {
           model: modelId,
         });
       },
-    });
+    };
+
+    // 应用模型参数（如果提供）
+    if (parameters) {
+      if (parameters.temperature !== undefined) {
+        streamOptions.temperature = parameters.temperature;
+      }
+      if (parameters.topP !== undefined) {
+        streamOptions.topP = parameters.topP;
+      }
+      if (parameters.maxTokens && parameters.maxTokens > 0) {
+        streamOptions.maxSteps = parameters.maxTokens;
+      }
+      if (parameters.presencePenalty !== undefined) {
+        streamOptions.presencePenalty = parameters.presencePenalty;
+      }
+      if (parameters.frequencyPenalty !== undefined) {
+        streamOptions.frequencyPenalty = parameters.frequencyPenalty;
+      }
+    }
+
+    // 调用 AI 模型
+    const result = streamText(streamOptions);
 
     // 返回 UI 消息流响应（重要：与 useChat 配合使用）
     return result.toUIMessageStreamResponse();

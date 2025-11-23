@@ -37,6 +37,15 @@ export interface Message {
 export interface ConversationModelConfig {
   providerId: string;            // 提供商 ID（如 'openai', 'google'）
   modelId: string;               // 模型 ID（如 'gpt-4o', 'gemini-1.5-flash'）
+  
+  // 模型参数（Phase 1.3）
+  parameters?: {
+    temperature?: number;        // 温度参数 (0-2)
+    topP?: number;              // Top P 参数 (0-1)
+    maxTokens?: number;         // 最大输出 token 数
+    presencePenalty?: number;   // 存在惩罚 (-2 到 2)
+    frequencyPenalty?: number;  // 频率惩罚 (-2 到 2)
+  };
 }
 
 // 对话分支（Phase 1.4）
