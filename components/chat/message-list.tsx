@@ -56,8 +56,8 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="flex-1 px-4">
-      <div ref={scrollAreaRef} className="max-w-4xl mx-auto py-6 space-y-1">
+    <ScrollArea className="flex-1 px-3 sm:px-4">
+      <div ref={scrollAreaRef} className="max-w-4xl mx-auto py-4 sm:py-6 space-y-1">
         {messages.map((message, index) => {
           // 第一条消息或 ID 为 'welcome-message' 的消息不显示操作按钮
           const isWelcomeMessage = index === 0 || message.id === 'welcome-message'
@@ -98,13 +98,13 @@ export function MessageList({
         })}
 
         {loading && (
-          <div className="flex gap-3 mb-4">
-            <div className="h-8 w-8 shrink-0 mt-1 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center">
-              <Loader2 className="h-4 w-4 text-white animate-spin" />
+          <div className="flex gap-2 sm:gap-3 mb-3 md:mb-4">
+            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 mt-0.5 sm:mt-1 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center">
+              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 text-white animate-spin" />
             </div>
             <div className="flex-1 space-y-1">
               {characterName && (
-                <span className="text-xs text-muted-foreground font-medium">
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">
                   {characterName}
                 </span>
               )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, MessageCircle } from 'lucide-react';
 import type { Character } from '@/types/character';
@@ -24,7 +24,7 @@ interface CharacterCardProps {
   onDelete: () => void;
 }
 
-export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProps) {
+export const CharacterCard = memo(function CharacterCard({ character, onEdit, onDelete }: CharacterCardProps) {
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -92,46 +92,46 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
     <>
       <div
         onClick={handleCardClick}
-        className="group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden"
+        className="group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden active:scale-[0.98]"
       >
         {/* 卡片内容 */}
-        <div className="p-6 pb-16 md:pb-6">
+        <div className="p-4 pb-14 sm:p-5 sm:pb-15 md:p-6 md:pb-6">
           {/* 顶部：头像和操作按钮 */}
-          <div className="flex items-start justify-between mb-4">
-            <Avatar className="h-12 w-12">
-              <AvatarFallback className="text-lg font-semibold bg-primary/10 text-primary">
+          <div className="flex items-start justify-between mb-3 sm:mb-4">
+            <Avatar className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12">
+              <AvatarFallback className="text-base sm:text-lg font-semibold bg-primary/10 text-primary">
                 {getInitials(character.name)}
               </AvatarFallback>
             </Avatar>
             
             {/* 操作按钮 - 悬停时显示 */}
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex gap-0.5 sm:gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 onClick={handleEdit}
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-destructive hover:text-destructive"
                 onClick={handleDeleteClick}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>
 
           {/* 角色名称 */}
-          <h3 className="text-lg font-semibold mb-2 line-clamp-1">
+          <h3 className="text-base sm:text-lg font-semibold mb-2 line-clamp-1">
             {character.name}
           </h3>
 
           {/* 角色描述 */}
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2 min-h-[2.5rem]">
             {character.description}
           </p>
 
@@ -154,9 +154,9 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
         {/* 底部"开始对话"按钮区域 */}
         {/* 移动端：固定显示在底部 */}
         {/* 桌面端：悬停时显示 */}
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-primary/5 flex items-center justify-center md:h-0 md:bg-transparent md:group-hover:h-12 md:group-hover:bg-primary/5 transition-all duration-200">
-          <div className="flex items-center gap-2 text-sm font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-            <MessageCircle className="h-4 w-4" />
+        <div className="absolute inset-x-0 bottom-0 h-11 sm:h-12 bg-primary/5 flex items-center justify-center md:h-0 md:bg-transparent md:group-hover:h-12 md:group-hover:bg-primary/5 transition-all duration-200">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span>{isCreatingConversation ? '创建中...' : '开始对话'}</span>
           </div>
         </div>
@@ -192,4 +192,4 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
       </Dialog>
     </>
   );
-}
+});

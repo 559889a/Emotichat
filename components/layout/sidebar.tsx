@@ -61,7 +61,7 @@ export function Sidebar({ isInSheet = false }: SidebarProps) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-background border-r transition-all duration-300",
+        "flex h-full flex-col bg-background border-r transition-all duration-300 ease-in-out",
         sidebarCollapsed ? "w-16" : "w-64"
       )}
     >
@@ -70,9 +70,9 @@ export function Sidebar({ isInSheet = false }: SidebarProps) {
         <div className="flex items-center gap-2 overflow-hidden">
           <Heart className="h-6 w-6 text-pink-500 flex-shrink-0" />
           <span className={cn(
-            "text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent whitespace-nowrap",
+            "text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent whitespace-nowrap transition-opacity duration-200",
             // 移动端始终显示，桌面端根据折叠状态决定
-            sidebarCollapsed && "md:hidden"
+            sidebarCollapsed && "md:opacity-0 md:w-0 md:hidden"
           )}>
             EmotiChat
           </span>
@@ -115,15 +115,15 @@ export function Sidebar({ isInSheet = false }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   sidebarCollapsed && "justify-center"
                 )}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!sidebarCollapsed && <span>{item.name}</span>}
+                <item.icon className="h-5 w-5 flex-shrink-0 transition-transform group-hover:scale-110" />
+                {!sidebarCollapsed && <span className="transition-opacity duration-200">{item.name}</span>}
               </Link>
             )
 

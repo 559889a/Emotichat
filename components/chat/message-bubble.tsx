@@ -2,7 +2,7 @@
 
 import { Message } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from './markdown-renderer';
 import { MessageActions } from './message-actions';
@@ -22,7 +22,7 @@ interface MessageBubbleProps {
   onCreateBranch?: () => void;
 }
 
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   message,
   characterName,
   characterAvatar,
@@ -63,8 +63,8 @@ export function MessageBubble({
   // 用户消息
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end mb-4 group">
-        <div className="max-w-[80%] space-y-2">
+      <div className="flex justify-end mb-3 md:mb-4 group animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="max-w-[85%] sm:max-w-[80%] md:max-w-[75%] space-y-2">
           {isEditing ? (
             <MessageEditor
               initialContent={message.content}
@@ -74,7 +74,7 @@ export function MessageBubble({
             />
           ) : (
             <>
-              <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl break-words">
+              <div className="bg-primary text-primary-foreground px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl break-words text-sm sm:text-base transition-all hover:shadow-md active:scale-[0.98]">
                 <MarkdownRenderer content={message.content} className="text-primary-foreground" />
                 {message.isEdited && (
                   <div className="text-xs opacity-70 mt-1">
@@ -113,16 +113,16 @@ export function MessageBubble({
 
   // AI 消息
   return (
-    <div className="flex gap-3 group mb-4">
-      <Avatar className="h-8 w-8 shrink-0 mt-1">
+    <div className="flex gap-2 sm:gap-3 group mb-3 md:mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 mt-0.5 sm:mt-1">
         <AvatarFallback className="bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm font-medium">
           {characterAvatar || 'AI'}
         </AvatarFallback>
       </Avatar>
       
-      <div className="flex-1 space-y-1 min-w-0">
+      <div className="flex-1 space-y-1 min-w-0 max-w-[85%] sm:max-w-[80%] md:max-w-[75%]">
         {characterName && (
-          <span className="text-xs text-muted-foreground font-medium">
+          <span className="text-xs sm:text-sm text-muted-foreground font-medium">
             {characterName}
           </span>
         )}
@@ -162,4 +162,4 @@ export function MessageBubble({
       </div>
     </div>
   );
-}
+});

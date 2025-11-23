@@ -228,21 +228,21 @@ function ChatPageContent() {
     <ErrorBoundary>
       <div className="flex flex-col h-full">
         {/* Header with conversation title and settings */}
-        <div className="flex-shrink-0 border-b bg-background px-4 py-3">
+        <div className="flex-shrink-0 border-b bg-background px-3 py-2.5 sm:px-4 sm:py-3">
           <div className="flex items-center justify-between max-w-4xl mx-auto">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs sm:text-sm flex-shrink-0">
                 {characterAvatar}
               </div>
-              <div>
-                <h2 className="font-semibold text-sm">{currentConversation?.title || '新对话'}</h2>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0">
+                <h2 className="font-semibold text-sm truncate">{currentConversation?.title || '新对话'}</h2>
+                <p className="text-xs text-muted-foreground truncate">
                   {currentCharacter?.name || '未知角色'}
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {/* Token 使用摘要 */}
               {messages.length > 0 && (
                 <TokenUsageSummary
@@ -285,7 +285,7 @@ function ChatPageContent() {
 
         {/* Token 警告 */}
         {shouldShowTokenWarning && (
-          <div className="px-4 py-3 border-t">
+          <div className="px-3 py-2 sm:px-4 sm:py-3 border-t">
             <div className="max-w-4xl mx-auto">
               <TokenCounter
                 usedTokens={totalTokens}
@@ -302,15 +302,15 @@ function ChatPageContent() {
         
         {/* 错误提示 */}
         {messagesError && (
-          <div className="px-4 py-2 bg-destructive/10 border-t border-destructive/20">
-            <p className="text-sm text-destructive text-center">
+          <div className="px-3 py-2 sm:px-4 bg-destructive/10 border-t border-destructive/20">
+            <p className="text-xs sm:text-sm text-destructive text-center">
               {messagesError}
             </p>
           </div>
         )}
 
         {/* 底部输入框 */}
-        <div className="border-t bg-background p-4">
+        <div className="border-t bg-background p-2 sm:p-3 md:p-4">
           <div className="max-w-4xl mx-auto">
             <ChatInput
               onSend={sendMessage}

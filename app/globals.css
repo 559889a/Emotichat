@@ -123,4 +123,31 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* 代码块样式优化 - 深色模式 */
+  .dark pre code.hljs {
+    @apply bg-gray-900 border border-gray-800;
+  }
+  
+  /* 代码块样式优化 - 明亮模式 */
+  :not(.dark) pre code.hljs {
+    @apply bg-gray-50 border border-gray-200;
+  }
+  
+  /* 优化滚动条样式 */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
 }
