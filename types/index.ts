@@ -56,6 +56,28 @@ export type {
 // 导出提示词工具函数
 export { getDefaultConversationPromptConfig } from './prompt';
 
+// 开发者模式相关 - 导出 Dev Mode 类型定义
+export type {
+  PromptBuildInfo,
+  ApiModelConfig,
+  ApiRequestInfo,
+  TokenUsage,
+  ApiError,
+  StreamChunk,
+  ApiResponseInfo,
+  MessageTokenAnalysis,
+  TotalTokenAnalysis,
+  TokenAnalysis,
+  PerformanceMetrics,
+  DevModeData,
+  DevModeSettings,
+  DevModeExportData,
+  DevModeExportOptions
+} from './dev-mode';
+
+// 导出 Dev Mode 工具函数
+export { getDefaultDevModeSettings } from './dev-mode';
+
 // 记忆相关
 export interface Memory {
   filename: string;

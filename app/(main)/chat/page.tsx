@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
-import { MessageSquare, Sparkles } from "lucide-react"
+import { MessageSquare, Sparkles, Code } from "lucide-react"
 import { useConversationStore } from "@/stores/conversation"
 import { useConversations } from "@/hooks/useConversations"
 import { useCharacters } from "@/hooks/useCharacters"
@@ -13,9 +13,13 @@ import { MessageList } from "@/components/chat/message-list"
 import { ChatInput } from "@/components/chat/chat-input"
 import { ConversationSettingsButton } from "@/components/chat/conversation-settings-dialog"
 import { TokenUsageSummary, TokenCounter } from "@/components/chat/token-counter"
+import { DevModePanel } from "@/components/chat/dev-mode-panel"
+import { Button } from "@/components/ui/button"
 import { countMessagesTokens, calculateTokenUsage } from "@/lib/utils/token-counter"
 import type { Conversation, ConversationSummary, UpdateConversationInput } from "@/types/conversation"
 import type { Character } from "@/types/character"
+import type { DevModeData, DevModeSettings } from "@/types/dev-mode"
+import { getDefaultDevModeSettings } from "@/types/dev-mode"
 import ErrorBoundary from "@/components/layout/error-boundary"
 
 function ChatPageLoading() {
@@ -37,6 +41,23 @@ function ChatPageContent() {
   const [currentConversation, setCurrentConv] = useState<ConversationSummary | null>(null)
   const [fullConversation, setFullConv] = useState<Conversation | null>(null)
   const [currentCharacter, setCurrentChar] = useState<Character | null>(null)
+
+  // Dev Mode 状态
+  const [devModeSettings, setDevModeSettings] = useState<DevModeSettings>(getDefaultDevModeSettings())
+  const [devModeData, setDevModeData] = useState<DevModeData | null>(null)
+  const [showDevPanel, setShowDevPanel] = useState(false)
+
+  // 从 localStorage 加载 Dev Mode 设置
+  useEffect(() => {
+    const saved = localStorage.getItem('devModeSettings')
+    if (saved) {
+      try {
+        setDevModeSettings(JSON.parse(saved))
+      } catch (error) {
+        console.error('Failed to parse dev mode settings:', error)
+      }
+    }
+  }, [])
 
   // 使用消息管理 Hook
   const {
@@ -250,6 +271,19 @@ function ChatPageContent() {
                   config={{ model: 'gpt-4', estimateMode: true }}
                 />
               )}
+
+              {/* Dev Mode 按钮 */}
+              {devModeSettings.enabled && devModeData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDevPanel(true)}
+                  className="gap-1.5"
+                >
+                  <Code className="h-4 w-4" />
+                  <span className="hidden sm:inline">Dev</span>
+                </Button>
+              )}
               
               <ConversationSettingsButton
                 conversation={fullConversation}
@@ -313,13 +347,81 @@ function ChatPageContent() {
         <div className="border-t bg-background p-2 sm:p-3 md:p-4">
           <div className="max-w-4xl mx-auto">
             <ChatInput
-              onSend={sendMessage}
+              onSend={(content) => {
+                // 如果启用了 Dev Mode，收集调试数据
+                if (devModeSettings.enabled) {
+                  const startTime = Date.now()
+                  
+                  // 创建模拟的 Dev Mode 数据
+                  // TODO: 在实际的 API 调用中收集真实数据
+                  const mockDevData: DevModeData = {
+                    id: crypto.randomUUID(),
+                    conversationId: conversationId || '',
+                    messageId: crypto.randomUUID(),
+                    promptBuild: {
+                      timestamp: new Date(),
+                      duration: 0,
+                      rawPromptItems: [],
+                      processedMessages: [],
+                      warnings: [],
+                      sources: {
+                        character: currentCharacter?.name,
+                        conversation: conversationId || undefined,
+                      },
+                    },
+                    apiRequest: {
+                      timestamp: new Date(),
+                      model: {
+                        provider: fullConversation?.modelConfig?.providerId || 'openai',
+                        modelId: fullConversation?.modelConfig?.modelId || 'gpt-4o',
+                        parameters: fullConversation?.modelConfig?.parameters || {},
+                      },
+                      messages: [],
+                      requestBody: {},
+                    },
+                    tokenAnalysis: {
+                      perMessage: [],
+                      total: {
+                        input: totalTokens,
+                        output: 0,
+                        total: totalTokens,
+                        limit: 128000,
+                        percentage: (totalTokens / 128000) * 100,
+                      },
+                      warnings: [],
+                    },
+                    performance: {
+                      promptBuildDuration: 0,
+                      requestDuration: 0,
+                      totalDuration: 0,
+                    },
+                    createdAt: new Date(),
+                  }
+                  
+                  setDevModeData(mockDevData)
+                  
+                  // 如果设置了自动打开，则打开面板
+                  if (devModeSettings.autoOpen) {
+                    setShowDevPanel(true)
+                  }
+                }
+                
+                // 发送消息
+                return sendMessage(content)
+              }}
               disabled={messagesLoading}
               onStop={stop}
               placeholder={`向 ${currentCharacter?.name || 'AI'} 发送消息...`}
             />
           </div>
         </div>
+
+        {/* Dev Mode 面板 */}
+        <DevModePanel
+          data={devModeData}
+          isOpen={showDevPanel}
+          onClose={() => setShowDevPanel(false)}
+        />
       </div>
     </ErrorBoundary>
   )
