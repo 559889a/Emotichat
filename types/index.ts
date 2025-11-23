@@ -21,6 +21,30 @@ export type {
   ConversationSummary
 } from './conversation';
 
+// 提示词相关 - 导出详细的提示词类型定义
+export type {
+  PromptRole,
+  PromptDepth,
+  InjectionPosition,
+  PromptLayer,
+  PromptInjection,
+  PromptVariable,
+  PromptMacro,
+  PromptItem,
+  ModelParameters,
+  ContextLimitConfig,
+  PromptPreset,
+  CharacterPromptConfig,
+  ExampleDialogue,
+  ConversationPromptConfig,
+  PlaceholderType,
+  Placeholder,
+  PromptBuildContext,
+  ProcessedPromptMessage,
+  CreatePromptItemInput,
+  UpdatePromptItemInput
+} from './prompt';
+
 // 记忆相关
 export interface Memory {
   filename: string;

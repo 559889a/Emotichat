@@ -1,3 +1,5 @@
+import type { CharacterPromptConfig } from './prompt';
+
 export interface Character {
   id: string;                    // UUID
   name: string;                  // 角色名称
@@ -16,6 +18,9 @@ export interface Character {
   
   // 记忆
   memoryEnabled: boolean;        // 是否启用记忆功能
+  
+  // 提示词配置（新提示词系统）
+  promptConfig?: CharacterPromptConfig; // 角色级提示词配置（可选）
   
   // 元数据
   createdAt: string;             // ISO 8601 时间戳

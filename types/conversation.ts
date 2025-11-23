@@ -1,3 +1,5 @@
+import type { ConversationPromptConfig } from './prompt';
+
 // 消息角色
 export type MessageRole = 'user' | 'assistant' | 'system';
 
@@ -21,6 +23,9 @@ export interface Conversation {
   
   // 消息存储在单独文件中，这里只存引用
   messageCount: number;          // 消息数量
+  
+  // 提示词配置（新提示词系统）
+  promptConfig?: ConversationPromptConfig; // 对话级提示词配置（可选）
   
   // 元数据
   createdAt: string;             // ISO 8601 时间戳
