@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { MessageSquare, Sparkles } from "lucide-react"
 import { useConversationStore } from "@/stores/conversation"
@@ -15,7 +15,15 @@ import type { ConversationSummary } from "@/types/conversation"
 import type { Character } from "@/types/character"
 import ErrorBoundary from "@/components/layout/error-boundary"
 
-export default function ChatPage() {
+function ChatPageLoading() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  )
+}
+
+function ChatPageContent() {
   const searchParams = useSearchParams()
   const conversationId = searchParams.get('id')
   
@@ -191,5 +199,13 @@ export default function ChatPage() {
       </div>
       </div>
     </ErrorBoundary>
+  )
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<ChatPageLoading />}>
+      <ChatPageContent />
+    </Suspense>
   )
 }

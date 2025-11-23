@@ -80,19 +80,19 @@
 - [x] 0.3.7: 实现语法高亮（可选：使用 CodeMirror 或 Monaco Editor）
 - [x] 0.3.8: 实现保存/取消按钮
 - [x] 0.3.9: 添加响应式设计（移动端适配）
-- [ ] 0.3.10: Git commit: "feat: 创建统一提示词编辑器"
+- [x] 0.3.10: Git commit: "feat: 创建统一提示词编辑器"
 
 #### 0.4 实现角色提示词管理
-- [ ] 0.4.1: 在 emotichat/components/character/prompt-config.tsx 创建配置面板
-- [ ] 0.4.2: 实现 System Prompt 编辑（角色定义、性格、背景）
-- [ ] 0.4.3: 实现 Jailbreak Prompt 编辑（可选，用于绕过限制）
-- [ ] 0.4.4: 实现 NSFW Prompt 编辑（可选，成人内容提示）
-- [ ] 0.4.5: 实现 First Message 编辑（开场白）
-- [ ] 0.4.6: 实现 Example Dialogs 编辑（示例对话，Few-shot Learning）
-- [ ] 0.4.7: 实现提示词层级管理（添加/删除/排序楼层）
-- [ ] 0.4.8: 实现深度选择器（顶部/底部等位置）
-- [ ] 0.4.9: 在 emotichat/components/character/character-form.tsx 集成提示词配置
-- [ ] 0.4.10: 更新 emotichat/lib/storage/characters.ts 保存提示词配置
+- [x] 0.4.1: 在 emotichat/components/character/prompt-config.tsx 创建配置面板
+- [x] 0.4.2: 实现 System Prompt 编辑（角色定义、性格、背景）
+- [x] 0.4.3: 实现 Jailbreak Prompt 编辑（可选，用于绕过限制）
+- [x] 0.4.4: 实现 NSFW Prompt 编辑（可选，成人内容提示）
+- [x] 0.4.5: 实现 First Message 编辑（开场白）
+- [x] 0.4.6: 实现 Example Dialogs 编辑（示例对话，Few-shot Learning）
+- [x] 0.4.7: 实现提示词层级管理（添加/删除/排序楼层）
+- [x] 0.4.8: 实现深度选择器（顶部/底部等位置）
+- [x] 0.4.9: 在 emotichat/components/character/character-form.tsx 集成提示词配置
+- [x] 0.4.10: 更新 emotichat/lib/storage/characters.ts 保存提示词配置
 - [ ] 0.4.11: Git commit: "feat: 实现角色提示词管理"
 
 #### 0.5 实现对话提示词配置
@@ -306,8 +306,8 @@
 
 ## 进度统计
 
-- **已完成**: 24 项
-- **进行中**: 92 项（Phase 0）
+- **已完成**: 34 项
+- **进行中**: 82 项（Phase 0）
 - **待办**: 125 项（Phase 1-3）
 - **总计**: 241 项
-- **完成率**: 10.0%
+- **完成率**: 14.1%
