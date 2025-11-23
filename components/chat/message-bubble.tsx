@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Copy, RotateCcw, Check } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { MarkdownRenderer } from './markdown-renderer';
 
 interface MessageBubbleProps {
   message: Message;
@@ -45,7 +46,7 @@ export function MessageBubble({
     return (
       <div className="flex justify-end mb-4">
         <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl max-w-[80%] break-words">
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <MarkdownRenderer content={message.content} className="text-primary-foreground" />
         </div>
       </div>
     );
@@ -67,11 +68,7 @@ export function MessageBubble({
           </span>
         )}
         
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <p className="whitespace-pre-wrap m-0 leading-relaxed text-foreground">
-            {message.content}
-          </p>
-        </div>
+        <MarkdownRenderer content={message.content} />
 
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
           <Button

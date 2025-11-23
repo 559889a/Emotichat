@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Markdown 渲染样式 */
+@import "highlight.js/styles/github-dark.css";
+@import "katex/dist/katex.min.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
