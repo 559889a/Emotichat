@@ -156,9 +156,18 @@ export interface PromptPreset {
   globalPosition: 'before_all' | 'after_character' | 'before_user' | 'custom';
   customOrder?: number;       // 自定义排序（当 globalPosition = 'custom' 时）
   
+  // Scenario（情景设定）
+  scenario?: string;          // 对话场景设定
+  
+  // Author's Note（作者注释）
+  authorsNote?: string;       // 作者注释，用于引导对话
+  authorsNoteDepth?: number;  // Author's Note 注入深度（默认为3）
+  authorsNotePosition?: InjectionPosition; // 注入位置（默认为'after'）
+  
   // 元数据
   createdAt: string;          // ISO 8601 时间戳
   updatedAt: string;          // ISO 8601 时间戳
+  isBuiltIn?: boolean;        // 是否为内置预设（不可删除）
 }
 
 // ============================================================================

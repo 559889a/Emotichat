@@ -1,9 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { AppConfig } from '@/types';
+import type { PromptPreset } from '@/types/prompt';
 
 const CONFIG_FILE = path.join(process.cwd(), 'data', 'config', 'app.json');
 const CONFIG_DIR = path.join(process.cwd(), 'data', 'config');
+const PRESETS_FILE = path.join(process.cwd(), 'data', 'config', 'presets.json');
+const ACTIVE_PRESET_FILE = path.join(process.cwd(), 'data', 'config', 'active-preset.json');
 
 /**
  * 默认配置
@@ -230,4 +233,128 @@ export async function setCustomEndpoint(
   
   await writeConfig(updated);
   return updated;
+}
+
+// ============================================================================
+// 预设管理
+// ============================================================================
+
+/**
+ * 加载所有预设
+ */
+export async function loadAllPresets(): Promise<PromptPreset[]> {
+  try {
+    await ensureConfigDir();
+    const content = await fs.readFile(PRESETS_FILE, 'utf-8');
+    return JSON.parse(content);
+  } catch (error) {
+    // 文件不存在或解析失败，返回空数组
+    return [];
+  }
+}
+
+/**
+ * 保存预设
+ */
+export async function savePreset(preset: PromptPreset): Promise<void> {
+  try {
+    const presets = await loadAllPresets();
+    const index = presets.findIndex((p) => p.id === preset.id);
+    
+    if (index >= 0) {
+      // 更新现有预设
+      presets[index] = preset;
+    } else {
+      // 添加新预设
+      presets.push(preset);
+    }
+    
+    await ensureConfigDir();
+    await fs.writeFile(PRESETS_FILE, JSON.stringify(presets, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error saving preset:', error);
+    throw error;
+  }
+}
+
+/**
+ * 加载单个预设
+ */
+export async function loadPreset(id: string): Promise<PromptPreset | null> {
+  try {
+    const presets = await loadAllPresets();
+    return presets.find((p) => p.id === id) || null;
+  } catch (error) {
+    console.error('Error loading preset:', error);
+    return null;
+  }
+}
+
+/**
+ * 删除预设
+ */
+export async function deletePreset(id: string): Promise<void> {
+  try {
+    const presets = await loadAllPresets();
+    const filtered = presets.filter((p) => p.id !== id && !p.isBuiltIn);
+    
+    await ensureConfigDir();
+    await fs.writeFile(PRESETS_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
+    
+    // 如果删除的是活动预设，清除活动预设ID
+    const activeId = await getActivePresetId();
+    if (activeId === id) {
+      await setActivePresetId(null);
+    }
+  } catch (error) {
+    console.error('Error deleting preset:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取活动预设ID
+ */
+export async function getActivePresetId(): Promise<string | null> {
+  try {
+    await ensureConfigDir();
+    const content = await fs.readFile(ACTIVE_PRESET_FILE, 'utf-8');
+    const data = JSON.parse(content);
+    return data.activePresetId || null;
+  } catch (error) {
+    // 文件不存在或解析失败
+    return null;
+  }
+}
+
+/**
+ * 设置活动预设ID
+ */
+export async function setActivePresetId(id: string | null): Promise<void> {
+  try {
+    await ensureConfigDir();
+    await fs.writeFile(
+      ACTIVE_PRESET_FILE,
+      JSON.stringify({ activePresetId: id }, null, 2),
+      'utf-8'
+    );
+  } catch (error) {
+    console.error('Error setting active preset:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取活动预设
+ */
+export async function getActivePreset(): Promise<PromptPreset | null> {
+  try {
+    const activeId = await getActivePresetId();
+    if (!activeId) return null;
+    
+    return await loadPreset(activeId);
+  } catch (error) {
+    console.error('Error getting active preset:', error);
+    return null;
+  }
 }

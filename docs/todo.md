@@ -105,13 +105,13 @@
 - [x] 0.5.7: Git commit: "feat: 实现对话提示词配置"
 
 #### 0.6 实现全局预设管理
-- [ ] 0.6.1: 在 emotichat/app/(main)/settings/prompts/page.tsx 创建预设管理页面
-- [ ] 0.6.2: 实现 Scenario 预设编辑（情景设定）
-- [ ] 0.6.3: 实现 Author's Note 预设编辑（作者注释）
-- [ ] 0.6.4: 实现预设导入/导出功能（JSON 格式）
-- [ ] 0.6.5: 实现预设模板库（内置常用预设）
-- [ ] 0.6.6: 在 emotichat/lib/storage/config.ts 保存全局预设
-- [ ] 0.6.7: Git commit: "feat: 实现全局预设管理"
+- [x] 0.6.1: 在 emotichat/app/(main)/settings/prompts/page.tsx 创建预设管理页面
+- [x] 0.6.2: 实现 Scenario 预设编辑（情景设定）
+- [x] 0.6.3: 实现 Author's Note 预设编辑（作者注释）
+- [x] 0.6.4: 实现预设导入/导出功能（JSON 格式）
+- [x] 0.6.5: 实现预设模板库（内置常用预设）
+- [x] 0.6.6: 在 emotichat/lib/storage/config.ts 保存全局预设
+- [x] 0.6.7: Git commit: "feat: 实现全局预设管理"
 
 #### 0.7 实现 Role 自动适配（Gemini 特殊处理）
 - [ ] 0.7.1: 在 emotichat/lib/prompt/role-adapter.ts 创建 Role 适配器
