@@ -56,7 +56,7 @@
 - [x] 0.1.9: 定义 ConversationPromptConfig 接口（对话级提示词配置）
 - [x] 0.1.10: 更新 emotichat/types/character.ts 添加 promptConfig 字段
 - [x] 0.1.11: 更新 emotichat/types/conversation.ts 添加 promptConfig 字段
-- [ ] 0.1.12: Git commit: "feat: 定义提示词系统数据结构"
+- [x] 0.1.12: Git commit: "feat: 定义提示词系统数据结构"
 
 #### 0.2 实现提示词构建引擎
 - [ ] 0.2.1: 在 emotichat/lib/prompt/builder.ts 创建提示词构建器
