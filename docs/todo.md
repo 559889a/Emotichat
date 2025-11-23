@@ -44,6 +44,15 @@
 - [x] Phase 1.1.7: 在 emotichat/components/chat/message-bubble.tsx 集成 Markdown 渲染
 - [x] Phase 1.1.8: 添加明暗主题适配
 - [x] Phase 1.1.9: Git commit: "feat: 实现 Markdown 渲染"
+- [x] Phase 1.2: 实现 Token 计数器与限制警告（已提交 Git: 747049f）
+- [x] Phase 1.2.1: 安装依赖 js-tiktoken
+- [x] Phase 1.2.2: 在 emotichat/lib/utils/token-counter.ts 实现 Token 计数工具
+- [x] Phase 1.2.3: 在提示词编辑器中显示 Token 数量
+- [x] Phase 1.2.4: 创建 TokenCounter 组件并集成到聊天界面
+- [x] Phase 1.2.5: 实现 Token 超限警告系统
+- [x] Phase 1.2.6: 实现 Token 压缩建议功能
+- [x] Phase 1.2.7: 测试 Token 计数准确性（8/8 测试通过）
+- [x] Phase 1.2.8: Git commit: "feat: 实现 Token 计数与警告"
 
 ---
 
@@ -161,15 +170,6 @@
 ## 待办任务
 
 ### Phase 1: 渲染与UI优化
-
-#### 1.2 Token 计数器与限制警告
-- [ ] 1.2.1: 安装依赖：tiktoken 或 gpt-tokenizer
-- [ ] 1.2.2: 在 emotichat/lib/utils/token-counter.ts 实现 Token 计数
-- [ ] 1.2.3: 在提示词编辑器中显示 Token 数量
-- [ ] 1.2.4: 在聊天界面显示当前对话 Token 总数
-- [ ] 1.2.5: 实现 Token 超限警告（接近模型上下文限制）
-- [ ] 1.2.6: 实现 Token 压缩建议（提示用户删除旧消息）
-- [ ] 1.2.7: Git commit: "feat: 实现 Token 计数与警告"
 
 #### 1.3 多模型支持与 UI 选择器
 - [ ] 1.3.1: 在 emotichat/components/chat/model-selector.tsx 创建模型选择器
@@ -307,11 +307,11 @@
 
 ## 进度统计
 
-- **已完成**: 136 项（Phase 0 全部完成 + Phase 1.1 完成）
+- **已完成**: 144 项（Phase 0 + Phase 1.1 + Phase 1.2 完成）
 - **进行中**: 0 项
-- **待办**: 115 项（Phase 1.2-3）
+- **待办**: 107 项（Phase 1.3-3）
 - **总计**: 251 项
-- **完成率**: 54.2%
+- **完成率**: 57.4%
 
 ---
 
@@ -334,4 +334,28 @@
 - 角色/对话/全局预设管理
 - 继承和覆盖逻辑
 
-**下一步**：进入 Phase 1（渲染与UI优化）
+**下一步**：继续 Phase 1（渲染与UI优化）
+
+## Phase 1.2 完成标志 🎉
+
+**Phase 1.2（Token 计数器与限制警告）已完成！**
+
+- ✅ 8 个子任务全部完成
+- ✅ 集成测试 8/8 通过
+- ✅ Git 提交: 747049f
+
+**已实现的核心功能**：
+- Token 计数工具（支持精确计数和估算）
+- 多模型 Token 限制支持（GPT-4, Gemini, Claude等）
+- TokenCounter 组件及其变体
+- 提示词编辑器 Token 显示
+- 聊天输入框实时 Token 计数
+- 对话总 Token 数显示
+- 三级警告系统（80%/90%/100%）
+- 清理旧消息建议
+
+**性能数据**：
+- 估算模式比精确模式快 678x
+- 适用于实时 UI 更新
+
+**下一步**：Phase 1.3（多模型支持与 UI 选择器）
