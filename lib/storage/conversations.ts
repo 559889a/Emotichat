@@ -304,6 +304,235 @@ export async function addMessage(
 }
 
 /**
+ * 更新消息内容（用于编辑）
+ */
+export async function updateMessage(
+  conversationId: string,
+  messageId: string,
+  content: string
+): Promise<Message> {
+  try {
+    await ensureConversationDir(conversationId);
+    const messagesPath = path.join(DATA_DIR, conversationId, 'messages.json');
+    
+    return await withFileLock(messagesPath, async () => {
+      const messages = await getMessages(conversationId);
+      const messageIndex = messages.findIndex(m => m.id === messageId);
+      
+      if (messageIndex === -1) {
+        throw new Error(`Message ${messageId} not found`);
+      }
+      
+      const message = messages[messageIndex];
+      const now = new Date().toISOString();
+      
+      // 创建版本历史（如果还没有）
+      if (!message.versions) {
+        message.versions = [];
+        // 将当前内容作为第一个版本
+        message.versions.push({
+          id: crypto.randomUUID(),
+          content: message.content,
+          timestamp: message.createdAt,
+          isActive: false,
+          model: message.model,
+          tokenCount: message.tokenCount,
+        });
+      }
+      
+      // 添加新版本
+      message.versions.forEach(v => v.isActive = false);
+      message.versions.push({
+        id: crypto.randomUUID(),
+        content,
+        timestamp: now,
+        isActive: true,
+        model: message.model,
+        tokenCount: message.tokenCount,
+      });
+      
+      // 更新消息
+      message.content = content;
+      message.editedAt = now;
+      message.isEdited = true;
+      
+      messages[messageIndex] = message;
+      await fs.writeFile(messagesPath, JSON.stringify(messages, null, 2), 'utf-8');
+      
+      return message;
+    });
+  } catch (error) {
+    console.error('Error updating message:', error);
+    throw error;
+  }
+}
+
+/**
+ * 添加消息版本（用于重新生成）
+ */
+export async function addMessageVersion(
+  conversationId: string,
+  messageId: string,
+  content: string,
+  model?: string
+): Promise<Message> {
+  try {
+    await ensureConversationDir(conversationId);
+    const messagesPath = path.join(DATA_DIR, conversationId, 'messages.json');
+    
+    return await withFileLock(messagesPath, async () => {
+      const messages = await getMessages(conversationId);
+      const messageIndex = messages.findIndex(m => m.id === messageId);
+      
+      if (messageIndex === -1) {
+        throw new Error(`Message ${messageId} not found`);
+      }
+      
+      const message = messages[messageIndex];
+      const now = new Date().toISOString();
+      
+      // 创建版本历史（如果还没有）
+      if (!message.versions) {
+        message.versions = [];
+        // 将当前内容作为第一个版本
+        message.versions.push({
+          id: crypto.randomUUID(),
+          content: message.content,
+          timestamp: message.createdAt,
+          isActive: false,
+          model: message.model,
+          tokenCount: message.tokenCount,
+        });
+      }
+      
+      // 添加新版本
+      message.versions.forEach(v => v.isActive = false);
+      message.versions.push({
+        id: crypto.randomUUID(),
+        content,
+        timestamp: now,
+        isActive: true,
+        model: model || message.model,
+      });
+      
+      // 更新消息
+      message.content = content;
+      message.model = model || message.model;
+      message.regenerationCount = (message.regenerationCount || 0) + 1;
+      
+      messages[messageIndex] = message;
+      await fs.writeFile(messagesPath, JSON.stringify(messages, null, 2), 'utf-8');
+      
+      return message;
+    });
+  } catch (error) {
+    console.error('Error adding message version:', error);
+    throw error;
+  }
+}
+
+/**
+ * 切换消息版本
+ */
+export async function switchMessageVersion(
+  conversationId: string,
+  messageId: string,
+  versionId: string
+): Promise<Message> {
+  try {
+    await ensureConversationDir(conversationId);
+    const messagesPath = path.join(DATA_DIR, conversationId, 'messages.json');
+    
+    return await withFileLock(messagesPath, async () => {
+      const messages = await getMessages(conversationId);
+      const messageIndex = messages.findIndex(m => m.id === messageId);
+      
+      if (messageIndex === -1) {
+        throw new Error(`Message ${messageId} not found`);
+      }
+      
+      const message = messages[messageIndex];
+      
+      if (!message.versions || message.versions.length === 0) {
+        throw new Error('No versions available');
+      }
+      
+      const version = message.versions.find(v => v.id === versionId);
+      if (!version) {
+        throw new Error(`Version ${versionId} not found`);
+      }
+      
+      // 切换活动版本
+      message.versions.forEach(v => v.isActive = (v.id === versionId));
+      message.content = version.content;
+      message.model = version.model;
+      message.tokenCount = version.tokenCount;
+      
+      messages[messageIndex] = message;
+      await fs.writeFile(messagesPath, JSON.stringify(messages, null, 2), 'utf-8');
+      
+      return message;
+    });
+  } catch (error) {
+    console.error('Error switching message version:', error);
+    throw error;
+  }
+}
+
+/**
+ * 删除消息
+ */
+export async function deleteMessage(
+  conversationId: string,
+  messageId: string,
+  deleteFollowing: boolean = false
+): Promise<void> {
+  try {
+    await ensureConversationDir(conversationId);
+    const messagesPath = path.join(DATA_DIR, conversationId, 'messages.json');
+    
+    await withFileLock(messagesPath, async () => {
+      const messages = await getMessages(conversationId);
+      const messageIndex = messages.findIndex(m => m.id === messageId);
+      
+      if (messageIndex === -1) {
+        throw new Error(`Message ${messageId} not found`);
+      }
+      
+      let newMessages: Message[];
+      if (deleteFollowing) {
+        // 删除该消息及其之后的所有消息
+        newMessages = messages.slice(0, messageIndex);
+      } else {
+        // 只删除该消息
+        newMessages = messages.filter(m => m.id !== messageId);
+      }
+      
+      await fs.writeFile(messagesPath, JSON.stringify(newMessages, null, 2), 'utf-8');
+    });
+    
+    // 更新对话元数据
+    const metadataPath = path.join(DATA_DIR, `${conversationId}.json`);
+    await withFileLock(metadataPath, async () => {
+      const conversation = await getConversationById(conversationId);
+      if (conversation) {
+        const messages = await getMessages(conversationId);
+        const updatedConversation: Conversation = {
+          ...conversation,
+          messageCount: messages.length,
+          lastMessageAt: messages.length > 0 ? messages[messages.length - 1].createdAt : undefined,
+          updatedAt: new Date().toISOString(),
+        };
+        await fs.writeFile(metadataPath, JSON.stringify(updatedConversation, null, 2), 'utf-8');
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw error;
+  }
+}
+
+/**
  * 获取对话概要列表（包含角色名称）
  */
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {

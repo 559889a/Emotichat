@@ -2,51 +2,110 @@
 
 import { Message } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Copy, RotateCcw, Check } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from './markdown-renderer';
+import { MessageActions } from './message-actions';
+import { MessageEditor } from './message-editor';
+import { VersionSelector } from './version-selector';
 
 interface MessageBubbleProps {
   message: Message;
   characterName?: string;
   characterAvatar?: string;
-  onRetry?: () => void;
+  onEdit?: (content: string) => void;
+  onRegenerate?: () => void;
+  onDelete?: () => void;
+  onDeleteFollowing?: () => void;
   onCopy?: () => void;
+  onVersionChange?: (versionId: string) => void;
+  onCreateBranch?: () => void;
 }
 
 export function MessageBubble({
   message,
   characterName,
   characterAvatar,
-  onRetry,
+  onEdit,
+  onRegenerate,
+  onDelete,
+  onDeleteFollowing,
   onCopy,
+  onVersionChange,
+  onCreateBranch,
 }: MessageBubbleProps) {
-  const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const handleCopy = async () => {
-    if (onCopy) {
-      onCopy();
-    } else {
-      await navigator.clipboard.writeText(message.content);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleEdit = () => {
+    setIsEditing(true);
   };
 
-  const handleRetry = () => {
-    if (onRetry) {
-      onRetry();
+  const handleSaveEdit = (content: string) => {
+    if (onEdit) {
+      onEdit(content);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleVersionChange = (versionId: string) => {
+    if (onVersionChange) {
+      onVersionChange(versionId);
     }
   };
+
+  const currentVersionId = message.versions?.find(v => v.isActive)?.id ||
+                          (message.versions && message.versions.length > 0 ? message.versions[message.versions.length - 1].id : '');
 
   // 用户消息
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl max-w-[80%] break-words">
-          <MarkdownRenderer content={message.content} className="text-primary-foreground" />
+      <div className="flex justify-end mb-4 group">
+        <div className="max-w-[80%] space-y-2">
+          {isEditing ? (
+            <MessageEditor
+              initialContent={message.content}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              className="bg-primary/10 px-4 py-2.5 rounded-2xl"
+            />
+          ) : (
+            <>
+              <div className="bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl break-words">
+                <MarkdownRenderer content={message.content} className="text-primary-foreground" />
+                {message.isEdited && (
+                  <div className="text-xs opacity-70 mt-1">
+                    已编辑
+                  </div>
+                )}
+              </div>
+
+              {/* 版本选择器 */}
+              {message.versions && message.versions.length > 1 && (
+                <VersionSelector
+                  versions={message.versions}
+                  currentVersionId={currentVersionId}
+                  onVersionChange={handleVersionChange}
+                  className="justify-end"
+                />
+              )}
+
+              {/* 操作按钮 */}
+              <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <MessageActions
+                  message={message}
+                  onEdit={onEdit ? handleEdit : undefined}
+                  onDelete={onDelete}
+                  onDeleteFollowing={onDeleteFollowing}
+                  onCopy={onCopy}
+                  onCreateBranch={onCreateBranch}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -70,37 +129,34 @@ export function MessageBubble({
         
         <MarkdownRenderer content={message.content} />
 
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 hover:bg-accent"
-            onClick={handleCopy}
-            title={copied ? '已复制' : '复制消息'}
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-          </Button>
-          
-          {onRetry && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 hover:bg-accent"
-              onClick={handleRetry}
-              title="重新生成"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
-          )}
+        {/* 版本选择器 */}
+        {message.versions && message.versions.length > 1 && (
+          <VersionSelector
+            versions={message.versions}
+            currentVersionId={currentVersionId}
+            onVersionChange={handleVersionChange}
+          />
+        )}
+
+        {/* 操作按钮 */}
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <MessageActions
+            message={message}
+            onRegenerate={onRegenerate}
+            onDelete={onDelete}
+            onDeleteFollowing={onDeleteFollowing}
+            onCopy={onCopy}
+            onCreateBranch={onCreateBranch}
+          />
         </div>
 
-        {message.model && (
-          <div className="text-xs text-muted-foreground/60 pt-1">
-            {message.model}
+        {/* 模型信息和重新生成次数 */}
+        {(message.model || message.regenerationCount) && (
+          <div className="text-xs text-muted-foreground/60 pt-1 flex gap-2">
+            {message.model && <span>{message.model}</span>}
+            {message.regenerationCount && message.regenerationCount > 0 && (
+              <span>• 已重新生成 {message.regenerationCount} 次</span>
+            )}
           </div>
         )}
       </div>

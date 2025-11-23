@@ -45,6 +45,9 @@ function ChatPageContent() {
     error: messagesError,
     sendMessage,
     retryMessage,
+    editMessage,
+    deleteMessage,
+    switchVersion,
     fetchMessages,
     stop,
   } = useMessages({
@@ -265,6 +268,10 @@ function ChatPageContent() {
             characterAvatar={characterAvatar}
             loading={messagesLoading}
             onRetry={retryMessage}
+            onEdit={editMessage}
+            onDelete={deleteMessage}
+            onDeleteFollowing={deleteMessage}
+            onVersionChange={switchVersion}
           />
         ) : (
           !messagesLoading && currentCharacter && (

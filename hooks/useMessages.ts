@@ -17,6 +17,9 @@ interface UseMessagesReturn {
   fetchMessages: (id?: string) => Promise<void>;
   sendMessage: (content: string, role?: MessageRole) => Promise<void>;
   retryMessage: (messageId: string) => Promise<void>;
+  editMessage: (messageId: string, content: string) => Promise<void>;
+  deleteMessage: (messageId: string, deleteFollowing?: boolean) => Promise<void>;
+  switchVersion: (messageId: string, versionId: string) => Promise<void>;
   clearMessages: () => void;
   stop: () => void;
 }
@@ -192,6 +195,153 @@ export function useMessages({
   );
 
   /**
+   * 编辑消息
+   */
+  const editMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!conversationId) {
+        throw new Error('没有活动对话');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `/api/conversations/${conversationId}/messages/${messageId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'edit', content }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '编辑消息失败');
+        }
+
+        // 编辑后需要删除该消息之后的所有消息，然后重新生成
+        const messageIndex = messages.findIndex((m: Message) => m.id === messageId);
+        if (messageIndex !== -1) {
+          // 保留到编辑的消息（含编辑后的内容）
+          const messagesBeforeEdit = chatMessages.slice(0, messageIndex + 1);
+          
+          // 更新编辑后的消息内容
+          messagesBeforeEdit[messageIndex] = {
+            ...messagesBeforeEdit[messageIndex],
+            parts: [{ type: 'text', text: content }],
+          };
+          
+          setChatMessages(messagesBeforeEdit);
+          
+          // 重新发送以触发 AI 响应
+          await sendChatMessage({
+            role: 'user',
+            parts: [{ type: 'text', text: content }],
+          });
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '编辑消息失败';
+        setError(errorMessage);
+        console.error('Failed to edit message:', err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [conversationId, messages, chatMessages, setChatMessages, sendChatMessage]
+  );
+
+  /**
+   * 删除消息
+   */
+  const deleteMessage = useCallback(
+    async (messageId: string, deleteFollowing: boolean = false) => {
+      if (!conversationId) {
+        throw new Error('没有活动对话');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const url = new URL(
+          `/api/conversations/${conversationId}/messages/${messageId}`,
+          window.location.origin
+        );
+        if (deleteFollowing) {
+          url.searchParams.set('deleteFollowing', 'true');
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '删除消息失败');
+        }
+
+        // 重新获取消息列表
+        await fetchMessages();
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '删除消息失败';
+        setError(errorMessage);
+        console.error('Failed to delete message:', err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [conversationId, fetchMessages]
+  );
+
+  /**
+   * 切换消息版本
+   */
+  const switchVersion = useCallback(
+    async (messageId: string, versionId: string) => {
+      if (!conversationId) {
+        throw new Error('没有活动对话');
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(
+          `/api/conversations/${conversationId}/messages/${messageId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'switch_version', versionId }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '切换版本失败');
+        }
+
+        // 重新获取消息列表以更新UI
+        await fetchMessages();
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '切换版本失败';
+        setError(errorMessage);
+        console.error('Failed to switch version:', err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [conversationId, fetchMessages]
+  );
+
+  /**
    * 清空消息列表
    */
   const clearMessages = useCallback(() => {
@@ -215,6 +365,9 @@ export function useMessages({
     fetchMessages,
     sendMessage,
     retryMessage,
+    editMessage,
+    deleteMessage,
+    switchVersion,
     clearMessages,
     stop,
   };

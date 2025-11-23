@@ -12,6 +12,10 @@ interface MessageListProps {
   characterAvatar?: string;
   loading?: boolean;
   onRetry?: (messageId: string) => void;
+  onEdit?: (messageId: string, content: string) => void;
+  onDelete?: (messageId: string) => void;
+  onDeleteFollowing?: (messageId: string) => void;
+  onVersionChange?: (messageId: string, versionId: string) => void;
 }
 
 export function MessageList({
@@ -20,6 +24,10 @@ export function MessageList({
   characterAvatar,
   loading = false,
   onRetry,
+  onEdit,
+  onDelete,
+  onDeleteFollowing,
+  onVersionChange,
 }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -51,7 +59,7 @@ export function MessageList({
     <ScrollArea className="flex-1 px-4">
       <div ref={scrollAreaRef} className="max-w-4xl mx-auto py-6 space-y-1">
         {messages.map((message, index) => {
-          // 第一条消息或 ID 为 'welcome-message' 的消息不显示重试按钮
+          // 第一条消息或 ID 为 'welcome-message' 的消息不显示操作按钮
           const isWelcomeMessage = index === 0 || message.id === 'welcome-message'
           
           return (
@@ -60,9 +68,29 @@ export function MessageList({
               message={message}
               characterName={message.role === 'assistant' ? characterName : undefined}
               characterAvatar={message.role === 'assistant' ? characterAvatar : undefined}
-              onRetry={
+              onRegenerate={
                 message.role === 'assistant' && onRetry && !isWelcomeMessage
                   ? () => onRetry(message.id)
+                  : undefined
+              }
+              onEdit={
+                message.role === 'user' && onEdit && !isWelcomeMessage
+                  ? (content: string) => onEdit(message.id, content)
+                  : undefined
+              }
+              onDelete={
+                onDelete && !isWelcomeMessage
+                  ? () => onDelete(message.id)
+                  : undefined
+              }
+              onDeleteFollowing={
+                onDeleteFollowing && !isWelcomeMessage
+                  ? () => onDeleteFollowing(message.id)
+                  : undefined
+              }
+              onVersionChange={
+                onVersionChange
+                  ? (versionId: string) => onVersionChange(message.id, versionId)
                   : undefined
               }
             />

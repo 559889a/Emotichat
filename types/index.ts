@@ -16,6 +16,9 @@ export type { Character, CreateCharacterInput, UpdateCharacterInput } from './ch
 export type {
   MessageRole,
   Message,
+  MessageVersion,
+  ConversationModelConfig,
+  ConversationBranch,
   Conversation,
   CreateConversationInput,
   UpdateConversationInput,

@@ -3,22 +3,50 @@ import type { ConversationPromptConfig } from './prompt';
 // 消息角色
 export type MessageRole = 'user' | 'assistant' | 'system';
 
+// 消息版本（用于编辑历史和重新生成）
+export interface MessageVersion {
+  id: string;                    // 版本 UUID
+  content: string;               // 版本内容
+  timestamp: string;             // ISO 8601 时间戳
+  isActive: boolean;             // 是否为当前显示的版本
+  model?: string;                // 生成该版本的模型（仅 assistant）
+  tokenCount?: number;           // 版本的 token 数量
+}
+
 // 单条消息
 export interface Message {
   id: string;                    // UUID
   role: MessageRole;             // 消息角色
-  content: string;               // 消息内容
+  content: string;               // 消息内容（当前活动版本的内容）
   createdAt: string;             // ISO 8601 时间戳
   
   // 可选元数据
   model?: string;                // 生成该消息的模型（仅 assistant）
   tokenCount?: number;           // token 数量
+  
+  // Phase 1.4: 消息编辑与版本管理
+  versions?: MessageVersion[];   // 消息的不同版本（包含编辑历史和重新生成的结果）
+  parentId?: string;             // 父消息ID（用于分支对话）
+  branchId?: string;             // 分支ID（标识属于哪个分支）
+  editedAt?: string;             // 最后编辑时间（ISO 8601）
+  isEdited?: boolean;            // 是否被编辑过
+  regenerationCount?: number;    // 重新生成次数（用于统计）
 }
 
 // 模型配置（简化版，用于对话存储）
 export interface ConversationModelConfig {
   providerId: string;            // 提供商 ID（如 'openai', 'google'）
   modelId: string;               // 模型 ID（如 'gpt-4o', 'gemini-1.5-flash'）
+}
+
+// 对话分支（Phase 1.4）
+export interface ConversationBranch {
+  id: string;                    // 分支 UUID
+  name: string;                  // 分支名称（用户可自定义）
+  parentMessageId: string;       // 分支起点的消息ID
+  createdAt: string;             // ISO 8601 时间戳
+  isActive: boolean;             // 是否为当前活动分支
+  description?: string;          // 分支描述（可选）
 }
 
 // 对话
@@ -35,6 +63,10 @@ export interface Conversation {
   
   // 模型配置（Phase 1.3 新增）
   modelConfig?: ConversationModelConfig; // 对话使用的模型配置（可选）
+  
+  // Phase 1.4: 分支管理
+  branches?: ConversationBranch[]; // 对话的分支列表（可选）
+  currentBranchId?: string;      // 当前活动分支ID（可选，默认主分支）
   
   // 元数据
   createdAt: string;             // ISO 8601 时间戳

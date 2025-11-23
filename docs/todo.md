@@ -182,13 +182,16 @@
 - [ ] 1.3.8: Git commit: "feat: 实现多模型支持"
 
 #### 1.4 消息编辑与重新生成
-- [ ] 1.4.1: 在 message-bubble.tsx 添加编辑按钮（用户消息）
-- [ ] 1.4.2: 实现消息编辑模式（将消息转为可编辑输入框）
-- [ ] 1.4.3: 实现消息重新生成按钮（AI 消息）
-- [ ] 1.4.4: 实现分支对话功能（编辑消息后创建新分支）
-- [ ] 1.4.5: 更新 emotichat/hooks/useMessages.ts 支持消息编辑
-- [ ] 1.4.6: 更新 emotichat/lib/storage/conversations.ts 保存编辑历史
-- [ ] 1.4.7: Git commit: "feat: 实现消息编辑与重新生成"
+- [x] 1.4.1: 扩展数据类型支持消息版本管理和分支
+- [x] 1.4.2: 更新存储层支持消息编辑、删除、版本管理
+- [x] 1.4.3: 创建消息操作菜单组件（message-actions.tsx）
+- [x] 1.4.4: 实现消息编辑器组件（message-editor.tsx）
+- [x] 1.4.5: 实现版本选择器组件（version-selector.tsx）
+- [x] 1.4.6: 在 message-bubble.tsx 集成所有功能
+- [x] 1.4.7: 创建 API 路由支持消息操作
+- [x] 1.4.8: 更新 useMessages.ts 支持编辑和重新生成
+- [x] 1.4.9: 更新聊天界面集成所有功能
+- [x] 1.4.10: Git commit: "feat: 实现消息编辑与重新生成"
 
 #### 1.5 Phase 1 集成测试
 - [ ] 1.5.1: 测试 Markdown 渲染（代码、公式、表格）
