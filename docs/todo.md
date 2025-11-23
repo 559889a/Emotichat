@@ -68,18 +68,18 @@
 - [x] 0.2.7: 实现提示词后处理（去除多余空行、格式化）
 - [x] 0.2.8: 实现主构建函数 buildPrompt(character, conversation, messages)
 - [x] 0.2.9: 添加单元测试 emotichat/lib/prompt/__tests__/builder.test.ts
-- [ ] 0.2.10: Git commit: "feat: 实现提示词构建引擎"
+- [x] 0.2.10: Git commit: "feat: 实现提示词构建引擎"
 
 #### 0.3 创建统一提示词编辑器组件
-- [ ] 0.3.1: 在 emotichat/components/prompt/prompt-editor.tsx 创建编辑器
-- [ ] 0.3.2: 实现多行文本编辑（使用 Textarea 组件）
-- [ ] 0.3.3: 实现变量插入按钮（{{user}}, {{char}}, {{random}}等）
-- [ ] 0.3.4: 实现宏插入按钮（预定义宏列表）
-- [ ] 0.3.5: 实现实时预览功能（显示替换后的提示词）
-- [ ] 0.3.6: 实现 Token 计数显示（使用 tiktoken 或类似库）
-- [ ] 0.3.7: 实现语法高亮（可选：使用 CodeMirror 或 Monaco Editor）
-- [ ] 0.3.8: 实现保存/取消按钮
-- [ ] 0.3.9: 添加响应式设计（移动端适配）
+- [x] 0.3.1: 在 emotichat/components/prompt/prompt-editor.tsx 创建编辑器
+- [x] 0.3.2: 实现多行文本编辑（使用 Textarea 组件）
+- [x] 0.3.3: 实现变量插入按钮（{{user}}, {{char}}, {{random}}等）
+- [x] 0.3.4: 实现宏插入按钮（预定义宏列表）
+- [x] 0.3.5: 实现实时预览功能（显示替换后的提示词）
+- [x] 0.3.6: 实现 Token 计数显示（使用 tiktoken 或类似库）
+- [x] 0.3.7: 实现语法高亮（可选：使用 CodeMirror 或 Monaco Editor）
+- [x] 0.3.8: 实现保存/取消按钮
+- [x] 0.3.9: 添加响应式设计（移动端适配）
 - [ ] 0.3.10: Git commit: "feat: 创建统一提示词编辑器"
 
 #### 0.4 实现角色提示词管理
