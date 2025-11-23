@@ -43,3 +43,7 @@ next-env.d.ts
 # 本地数据目录（包含用户隐私数据，不提交到 Git）
 /data/**
 !/data/**/.gitkeep
+
+# 本地日志目录（包含运行日志，不提交到 Git）
+/logs/**
+!/logs/**/.gitkeep
