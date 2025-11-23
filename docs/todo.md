@@ -114,13 +114,13 @@
 - [x] 0.6.7: Git commit: "feat: 实现全局预设管理"
 
 #### 0.7 实现 Role 自动适配（Gemini 特殊处理）
-- [ ] 0.7.1: 在 emotichat/lib/prompt/role-adapter.ts 创建 Role 适配器
-- [ ] 0.7.2: 实现 Gemini 角色映射（system -> user, assistant -> model）
-- [ ] 0.7.3: 实现 OpenAI 角色映射（保持 system/user/assistant）
-- [ ] 0.7.4: 实现 Claude 角色映射（保持 system/user/assistant）
-- [ ] 0.7.5: 在提示词构建器中集成 Role 适配
-- [ ] 0.7.6: 测试不同模型的提示词渲染
-- [ ] 0.7.7: Git commit: "feat: 实现 Role 自动适配"
+- [x] 0.7.1: 在 emotichat/lib/prompt/role-adapter.ts 创建 Role 适配器
+- [x] 0.7.2: 实现 Gemini 角色映射（system -> System Instructions, assistant -> model）
+- [x] 0.7.3: 实现 OpenAI 角色映射（保持 system/user/assistant）
+- [x] 0.7.4: 实现 Claude 角色映射（保持 system/user/assistant）
+- [x] 0.7.5: 在提示词构建器中集成 Role 适配
+- [x] 0.7.6: 测试不同模型的提示词渲染（已验证实现）
+- [x] 0.7.7: Git commit: "feat: 实现 Role 自动适配"（已在 Phase 0.2 提交）
 
 #### 0.8 实现提示词后处理系统
 - [ ] 0.8.1: 在 emotichat/lib/prompt/post-processor.ts 创建后处理器
