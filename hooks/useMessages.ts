@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Message, MessageRole } from '@/types';
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 
 interface UseMessagesOptions {
   conversationId: string | null;
@@ -27,8 +28,21 @@ export function useMessages({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 集成 Vercel AI SDK useChat (v5.x 使用简化配置)
-  const chat = useChat({
+  // 使用 Vercel AI SDK useChat hook (v5.x)
+  const {
+    messages: chatMessages,
+    setMessages: setChatMessages,
+    sendMessage: sendChatMessage,
+    status,
+    stop,
+    error: chatError,
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      body: {
+        conversationId,
+      },
+    }),
     id: conversationId || undefined,
     onError: (err: Error) => {
       setError(err.message);
@@ -36,16 +50,11 @@ export function useMessages({
     },
   });
 
-  const { messages: chatMessages, setMessages: setChatMessages, status, stop, regenerate } = chat;
-
   // 将 AI SDK 的消息转换为我们的 Message 类型
-  const messages = chatMessages.map((m: any) => {
-    // 提取文本内容
+  const messages: Message[] = chatMessages.map((m) => {
+    // 从 parts 中提取文本内容
     let content = '';
-    if (typeof m.content === 'string') {
-      content = m.content;
-    } else if (Array.isArray(m.parts)) {
-      // 从 parts 中提取文本
+    if (m.parts && Array.isArray(m.parts)) {
       content = m.parts
         .filter((p: any) => p.type === 'text')
         .map((p: any) => p.text)
@@ -81,7 +90,7 @@ export function useMessages({
         throw new Error(result.error || '获取消息失败');
       }
 
-      // 转换后端消息格式为 AI SDK 格式
+      // 转换后端消息格式为 AI SDK v5 格式
       const loadedMessages = (result.data || []).map((m: Message) => ({
         id: m.id,
         role: m.role,
@@ -99,7 +108,7 @@ export function useMessages({
   }, [conversationId, setChatMessages]);
 
   /**
-   * 发送消息
+   * 发送消息 - 使用 useChat 的 sendMessage 方法
    */
   const sendMessage = useCallback(
     async (content: string, role: MessageRole = 'user') => {
@@ -114,79 +123,12 @@ export function useMessages({
       setError(null);
 
       try {
-        // 添加用户消息到本地状态
-        const userMessage = {
-          id: crypto.randomUUID(),
-          role: role,
-          parts: [{ type: 'text' as const, text: content.trim() }],
-        };
-        
-        setChatMessages([...chatMessages, userMessage] as any);
-
-        // 直接调用 API，传递 conversationId
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: [...chatMessages, userMessage].map(m => ({
-              role: m.role,
-              content: m.parts?.map((p: any) => p.type === 'text' ? p.text : '').join('') || '',
-            })),
-            conversationId: conversationId,
-          }),
+        // 使用 useChat 的 sendMessage 方法发送消息
+        // sendMessage 会自动处理流式响应
+        await sendChatMessage({
+          role,
+          parts: [{ type: 'text', text: content.trim() }],
         });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || '发送消息失败');
-        }
-
-        // 处理流式响应
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let assistantMessage = '';
-
-        if (reader) {
-          const assistantMessageId = crypto.randomUUID();
-          
-          // 添加初始空的 assistant 消息作为占位符
-          setChatMessages(prev => [
-            ...prev,
-            {
-              id: assistantMessageId,
-              role: 'assistant',
-              parts: [{ type: 'text' as const, text: '' }],
-            },
-          ] as any);
-          
-          // 读取并累积流式响应
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            // 直接解码为文本（Vercel AI SDK 返回纯文本流）
-            const chunk = decoder.decode(value, { stream: true });
-            
-            if (chunk) {
-              assistantMessage += chunk;
-              
-              // 实时更新消息列表以显示累积的内容
-              setChatMessages(prev => {
-                const withoutLast = prev.slice(0, -1);
-                return [
-                  ...withoutLast,
-                  {
-                    id: assistantMessageId,
-                    role: 'assistant',
-                    parts: [{ type: 'text' as const, text: assistantMessage }],
-                  },
-                ] as any;
-              });
-            }
-          }
-        }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '发送消息失败';
         setError(errorMessage);
@@ -194,7 +136,7 @@ export function useMessages({
         throw err;
       }
     },
-    [conversationId, chatMessages, setChatMessages]
+    [conversationId, sendChatMessage]
   );
 
   /**
@@ -218,14 +160,35 @@ export function useMessages({
       }
 
       try {
-        // 使用新的 regenerate API
-        await regenerate({ messageId });
+        // 删除当前 AI 消息及之后的所有消息
+        const messagesBeforeAssistant = chatMessages.slice(0, messageIndex);
+        setChatMessages(messagesBeforeAssistant);
+        
+        // 重新发送最后一条用户消息
+        const lastUserMessage = messagesBeforeAssistant
+          .slice()
+          .reverse()
+          .find((m: any) => m.role === 'user');
+        
+        if (lastUserMessage && lastUserMessage.parts) {
+          const text = lastUserMessage.parts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('');
+          
+          if (text) {
+            await sendChatMessage({
+              role: 'user',
+              parts: [{ type: 'text', text }],
+            });
+          }
+        }
       } catch (err) {
         console.error('Failed to retry message:', err);
         throw err;
       }
     },
-    [conversationId, messages, regenerate]
+    [conversationId, messages, chatMessages, setChatMessages, sendChatMessage]
   );
 
   /**
@@ -247,8 +210,8 @@ export function useMessages({
 
   return {
     messages,
-    loading: loading || status === 'submitted' || status === 'streaming',
-    error: error || (chat.error ? chat.error.message : null),
+    loading: loading || status === 'streaming',
+    error: error || (chatError ? chatError.message : null),
     fetchMessages,
     sendMessage,
     retryMessage,

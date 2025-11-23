@@ -13,6 +13,7 @@ import { MessageList } from "@/components/chat/message-list"
 import { ChatInput } from "@/components/chat/chat-input"
 import type { ConversationSummary } from "@/types/conversation"
 import type { Character } from "@/types/character"
+import ErrorBoundary from "@/components/layout/error-boundary"
 
 export default function ChatPage() {
   const searchParams = useSearchParams()
@@ -68,15 +69,18 @@ export default function ChatPage() {
   // 加载状态
   if (conversationsLoading && !currentConversation && conversationId) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <ErrorBoundary>
+        <div className="flex h-full items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </ErrorBoundary>
     )
   }
 
   // 如果没有选中对话，显示主欢迎页面
   if (!conversationId || !currentConversation) {
     return (
+      <ErrorBoundary>
       <div className="flex h-full items-center justify-center p-4 md:p-8">
         <div className="flex flex-col items-center gap-6 md:gap-8 text-center max-w-2xl w-full px-4">
           {/* 图标 */}
@@ -134,6 +138,7 @@ export default function ChatPage() {
           </p>
         </div>
       </div>
+      </ErrorBoundary>
     )
   }
 
@@ -143,7 +148,8 @@ export default function ChatPage() {
 
   // 显示对话界面
   return (
-    <div className="flex flex-col h-full">
+    <ErrorBoundary>
+      <div className="flex flex-col h-full">
       {/* 消息列表或欢迎屏幕 */}
       {hasMessages ? (
         <MessageList
@@ -183,6 +189,7 @@ export default function ChatPage() {
           />
         </div>
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

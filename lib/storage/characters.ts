@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Character, CreateCharacterInput, UpdateCharacterInput } from '@/types';
+import { withFileLock } from './lock';
 
 const DATA_DIR = path.join(process.cwd(), 'data', 'characters');
 
@@ -77,7 +78,10 @@ export async function createCharacter(
     };
     
     const filePath = path.join(DATA_DIR, `${character.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(character, null, 2), 'utf-8');
+    
+    await withFileLock(filePath, async () => {
+      await fs.writeFile(filePath, JSON.stringify(character, null, 2), 'utf-8');
+    });
     
     return character;
   } catch (error) {
@@ -95,22 +99,26 @@ export async function updateCharacter(
 ): Promise<Character | null> {
   try {
     await ensureDataDir();
-    const existing = await getCharacterById(id);
-    
-    if (!existing) {
-      return null;
-    }
-    
-    const updated: Character = {
-      ...existing,
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    
     const filePath = path.join(DATA_DIR, `${id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');
     
-    return updated;
+    return await withFileLock(filePath, async () => {
+      // 在锁保护下重新读取，确保获取最新数据
+      const existing = await getCharacterById(id);
+      
+      if (!existing) {
+        return null;
+      }
+      
+      const updated: Character = {
+        ...existing,
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+      
+      return updated;
+    });
   } catch (error) {
     console.error('Error updating character:', error);
     throw error;
@@ -124,8 +132,11 @@ export async function deleteCharacter(id: string): Promise<boolean> {
   try {
     await ensureDataDir();
     const filePath = path.join(DATA_DIR, `${id}.json`);
-    await fs.unlink(filePath);
-    return true;
+    
+    return await withFileLock(filePath, async () => {
+      await fs.unlink(filePath);
+      return true;
+    });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return false;

@@ -7,6 +7,7 @@ import {
   ConversationSummary
 } from '@/types';
 import { getCharacterById } from './characters';
+import { withFileLock } from './lock';
 
 const DATA_DIR = path.join(process.cwd(), 'data', 'conversations');
 
@@ -109,14 +110,19 @@ export async function createConversation(
       updatedAt: now,
     };
     
-    // 保存对话元数据
     const filePath = path.join(DATA_DIR, `${conversation.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(conversation, null, 2), 'utf-8');
+    
+    // 保存对话元数据
+    await withFileLock(filePath, async () => {
+      await fs.writeFile(filePath, JSON.stringify(conversation, null, 2), 'utf-8');
+    });
     
     // 创建消息目录和空消息文件
     await ensureConversationDir(conversation.id);
     const messagesPath = path.join(DATA_DIR, conversation.id, 'messages.json');
-    await fs.writeFile(messagesPath, JSON.stringify([], null, 2), 'utf-8');
+    await withFileLock(messagesPath, async () => {
+      await fs.writeFile(messagesPath, JSON.stringify([], null, 2), 'utf-8');
+    });
     
     return conversation;
   } catch (error) {
@@ -134,22 +140,26 @@ export async function updateConversation(
 ): Promise<Conversation> {
   try {
     await ensureDataDir();
-    const existing = await getConversationById(id);
-    
-    if (!existing) {
-      throw new Error(`Conversation ${id} not found`);
-    }
-    
-    const updated: Conversation = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-    
     const filePath = path.join(DATA_DIR, `${id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');
     
-    return updated;
+    return await withFileLock(filePath, async () => {
+      // 在锁保护下重新读取，确保获取最新数据
+      const existing = await getConversationById(id);
+      
+      if (!existing) {
+        throw new Error(`Conversation ${id} not found`);
+      }
+      
+      const updated: Conversation = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+      
+      return updated;
+    });
   } catch (error) {
     console.error('Error updating conversation:', error);
     throw error;
@@ -162,18 +172,20 @@ export async function updateConversation(
 export async function deleteConversation(id: string): Promise<void> {
   try {
     await ensureDataDir();
-    
-    // 删除对话元数据文件
     const filePath = path.join(DATA_DIR, `${id}.json`);
-    await fs.unlink(filePath);
     
-    // 删除消息目录
-    const conversationDir = path.join(DATA_DIR, id);
-    try {
-      await fs.rm(conversationDir, { recursive: true, force: true });
-    } catch (error) {
-      console.warn('Error deleting conversation directory:', error);
-    }
+    await withFileLock(filePath, async () => {
+      // 删除对话元数据文件
+      await fs.unlink(filePath);
+      
+      // 删除消息目录
+      const conversationDir = path.join(DATA_DIR, id);
+      try {
+        await fs.rm(conversationDir, { recursive: true, force: true });
+      } catch (error) {
+        console.warn('Error deleting conversation directory:', error);
+      }
+    });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return; // 文件不存在，静默返回
@@ -216,42 +228,48 @@ export async function addMessage(
   message: Omit<Message, 'id' | 'createdAt'>
 ): Promise<Message> {
   try {
-    // 获取现有消息
-    const messages = await getMessages(conversationId);
-    
-    // 创建新消息
-    const newMessage: Message = {
-      id: crypto.randomUUID(),
-      ...message,
-      createdAt: new Date().toISOString(),
-    };
-    
-    // 添加到消息列表
-    messages.push(newMessage);
-    
-    // 保存消息
     await ensureConversationDir(conversationId);
     const messagesPath = path.join(DATA_DIR, conversationId, 'messages.json');
-    await fs.writeFile(messagesPath, JSON.stringify(messages, null, 2), 'utf-8');
     
-    // 更新对话元数据
-    const conversation = await getConversationById(conversationId);
-    if (conversation) {
-      await updateConversation(conversationId, {
-        title: conversation.title,
-      });
+    // 使用文件锁保护消息文件的读写操作
+    const newMessage = await withFileLock(messagesPath, async () => {
+      // 在锁保护下读取现有消息
+      const messages = await getMessages(conversationId);
       
-      // 单独更新 messageCount 和 lastMessageAt
-      const updatedConversation: Conversation = {
-        ...conversation,
-        messageCount: messages.length,
-        lastMessageAt: newMessage.createdAt,
-        updatedAt: new Date().toISOString(),
+      // 创建新消息
+      const msg: Message = {
+        id: crypto.randomUUID(),
+        ...message,
+        createdAt: new Date().toISOString(),
       };
       
-      const filePath = path.join(DATA_DIR, `${conversationId}.json`);
-      await fs.writeFile(filePath, JSON.stringify(updatedConversation, null, 2), 'utf-8');
-    }
+      // 添加到消息列表
+      messages.push(msg);
+      
+      // 保存消息
+      await fs.writeFile(messagesPath, JSON.stringify(messages, null, 2), 'utf-8');
+      
+      return msg;
+    });
+    
+    // 更新对话元数据（使用独立的锁）
+    const metadataPath = path.join(DATA_DIR, `${conversationId}.json`);
+    await withFileLock(metadataPath, async () => {
+      const conversation = await getConversationById(conversationId);
+      if (conversation) {
+        // 重新获取消息数量（确保准确性）
+        const messages = await getMessages(conversationId);
+        
+        const updatedConversation: Conversation = {
+          ...conversation,
+          messageCount: messages.length,
+          lastMessageAt: newMessage.createdAt,
+          updatedAt: new Date().toISOString(),
+        };
+        
+        await fs.writeFile(metadataPath, JSON.stringify(updatedConversation, null, 2), 'utf-8');
+      }
+    });
     
     return newMessage;
   } catch (error) {

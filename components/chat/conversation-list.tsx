@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useState } from "react"
+import ErrorBoundary from "@/components/layout/error-boundary"
 
 interface ConversationListProps {
   conversations: ConversationSummary[]
@@ -59,14 +60,16 @@ export function ConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-        暂无对话
-      </div>
+      <ErrorBoundary>
+        <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+          暂无对话
+        </div>
+      </ErrorBoundary>
     )
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <div className="flex flex-col gap-1 px-2">
         {sortedConversations.map((conv) => {
           const isActive = conv.id === currentId
@@ -130,6 +133,6 @@ export function ConversationList({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </ErrorBoundary>
   )
 }

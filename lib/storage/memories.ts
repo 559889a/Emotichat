@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Memory } from '@/types';
+import { withFileLock } from './lock';
 
 const DATA_DIR = path.join(process.cwd(), 'data', 'memories');
 
@@ -65,15 +66,17 @@ export async function createMemory(
     const characterDir = path.join(DATA_DIR, characterId);
     const filePath = path.join(characterDir, filename);
     
-    await fs.writeFile(filePath, content, 'utf-8');
-    
-    const stats = await fs.stat(filePath);
-    
-    return {
-      filename,
-      content,
-      createdAt: stats.birthtime,
-    };
+    return await withFileLock(filePath, async () => {
+      await fs.writeFile(filePath, content, 'utf-8');
+      
+      const stats = await fs.stat(filePath);
+      
+      return {
+        filename,
+        content,
+        createdAt: stats.birthtime,
+      };
+    });
   } catch (error) {
     console.error('Error creating memory:', error);
     throw error;
@@ -96,8 +99,10 @@ export async function deleteMemory(
       return false;
     }
     
-    await fs.unlink(filePath);
-    return true;
+    return await withFileLock(filePath, async () => {
+      await fs.unlink(filePath);
+      return true;
+    });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return false;
@@ -164,14 +169,16 @@ export async function updateMemory(
       return null;
     }
     
-    await fs.writeFile(filePath, content, 'utf-8');
-    const stats = await fs.stat(filePath);
-    
-    return {
-      filename,
-      content,
-      createdAt: stats.birthtime,
-    };
+    return await withFileLock(filePath, async () => {
+      await fs.writeFile(filePath, content, 'utf-8');
+      const stats = await fs.stat(filePath);
+      
+      return {
+        filename,
+        content,
+        createdAt: stats.birthtime,
+      };
+    });
   } catch (error) {
     console.error('Error updating memory:', error);
     throw error;

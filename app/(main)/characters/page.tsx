@@ -7,6 +7,7 @@ import type { Character, CreateCharacterInput, UpdateCharacterInput } from '@/ty
 import { CharacterCard } from '@/components/character/character-card';
 import { CharacterForm } from '@/components/character/character-form';
 import { Button } from '@/components/ui/button';
+import ErrorBoundary from '@/components/layout/error-boundary';
 
 export default function CharactersPage() {
   const { characters, loading, error, createCharacter, updateCharacter, deleteCharacter } = useCharacters();
@@ -68,7 +69,8 @@ export default function CharactersPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <ErrorBoundary>
+      <div className="container mx-auto p-6 max-w-7xl">
       {/* 页面标题和操作栏 */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -120,6 +122,7 @@ export default function CharactersPage() {
         character={editingCharacter}
         onSubmit={handleFormSubmit}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }

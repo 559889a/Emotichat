@@ -15,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useConversations } from '@/hooks/useConversations';
+import { useConversationStore } from '@/stores/conversation';
 
 interface CharacterCardProps {
   character: Character;
@@ -26,6 +28,10 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  
+  const { createConversation } = useConversations();
+  const { setCurrentConversation } = useConversationStore();
 
   // 获取首字母（支持中英文）
   const getInitials = (name: string) => {
@@ -33,8 +39,36 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
     return name.charAt(0).toUpperCase();
   };
 
-  const handleCardClick = () => {
-    router.push(`/chat?character=${character.id}`);
+  const handleCardClick = async (e: React.MouseEvent) => {
+    // 如果点击的是操作按钮，不触发卡片点击
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    
+    // 防止重复点击
+    if (isCreatingConversation) {
+      return;
+    }
+    
+    // 创建新对话
+    setIsCreatingConversation(true);
+    try {
+      const conversation = await createConversation({
+        characterId: character.id,
+        title: `与${character.name}的对话`,
+      });
+      
+      if (conversation) {
+        // 设置为当前对话
+        setCurrentConversation(conversation.id);
+        // 跳转到新对话页面
+        router.push(`/chat?id=${conversation.id}`);
+      }
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    } finally {
+      setIsCreatingConversation(false);
+    }
   };
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -61,7 +95,7 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
         className="group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden"
       >
         {/* 卡片内容 */}
-        <div className="p-6">
+        <div className="p-6 pb-16 md:pb-6">
           {/* 顶部：头像和操作按钮 */}
           <div className="flex items-start justify-between mb-4">
             <Avatar className="h-12 w-12">
@@ -101,9 +135,9 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
             {character.description}
           </p>
 
-          {/* 性格标签 */}
+          {/* 性格标签 - 桌面端悬停时上移 */}
           {character.personality && character.personality.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 transition-transform duration-200 md:group-hover:-translate-y-14">
               {character.personality.slice(0, 3).map((tag, index) => (
                 <Badge key={index} variant="secondary" className="text-xs">
                   {tag}
@@ -117,13 +151,15 @@ export function CharacterCard({ character, onEdit, onDelete }: CharacterCardProp
             </div>
           )}
 
-          {/* 底部悬停效果 - 开始对话提示 */}
-          <div className="absolute inset-x-0 bottom-0 h-0 bg-primary/5 group-hover:h-12 transition-all duration-200 flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 text-sm font-medium text-primary">
-              <MessageCircle className="h-4 w-4" />
-              <span>开始对话</span>
-            </div>
+        {/* 底部"开始对话"按钮区域 */}
+        {/* 移动端：固定显示在底部 */}
+        {/* 桌面端：悬停时显示 */}
+        <div className="absolute inset-x-0 bottom-0 h-12 bg-primary/5 flex items-center justify-center md:h-0 md:bg-transparent md:group-hover:h-12 md:group-hover:bg-primary/5 transition-all duration-200">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <MessageCircle className="h-4 w-4" />
+            <span>{isCreatingConversation ? '创建中...' : '开始对话'}</span>
           </div>
+        </div>
         </div>
       </div>
 
