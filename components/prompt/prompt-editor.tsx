@@ -260,8 +260,8 @@ export function PromptEditor({
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      {/* 头部工具栏 - 仅在有标题或需要预览时显示 */}
-      {(title || showPreview) && (
+      {/* 头部工具栏 */}
+      {title && (
         <Card>
           <CardHeader className="py-3">
             <div className="flex items-center justify-between">
@@ -303,8 +303,8 @@ export function PromptEditor({
       {/* 主内容区 */}
       <div className={cn('grid gap-4', showPreviewPanel ? 'lg:grid-cols-2' : 'grid-cols-1')}>
         {/* 编辑区 */}
-        <Card className="flex flex-col" style={{ maxHeight }}>
-          <CardHeader className="py-3 flex-shrink-0">
+        <Card>
+          <CardHeader className="py-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">提示词列表</span>
               <div className="flex items-center gap-1">
@@ -353,11 +353,9 @@ export function PromptEditor({
             </div>
           </CardHeader>
 
-          <Separator className="flex-shrink-0" />
+          <Separator />
 
-          <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-3">
                 {sortedItems.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -392,27 +390,20 @@ export function PromptEditor({
                     ))}
                   </>
                 )}
-              </div>
-            </ScrollArea>
+
+            {/* 添加按钮 */}
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleAddItem}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                添加提示词
+              </Button>
+            )}
           </CardContent>
-          
-          {/* 添加按钮 */}
-          {!readOnly && (
-            <>
-              <Separator className="flex-shrink-0" />
-              <div className="p-3 flex-shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleAddItem}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  添加提示词
-                </Button>
-              </div>
-            </>
-          )}
         </Card>
 
         {/* 预览区 */}
