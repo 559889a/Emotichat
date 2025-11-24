@@ -76,41 +76,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
-    // 验证 memoryEnabled
-    if (typeof body.memoryEnabled !== 'boolean') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '记忆功能设置必须是布尔值',
-        },
-        { status: 400 }
-      );
-    }
-    
-    // 验证可选的 temperature 参数
-    if (body.temperature !== undefined) {
-      const temp = Number(body.temperature);
-      if (isNaN(temp) || temp < 0 || temp > 2) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: '温度值必须在 0-2 之间',
-          },
-          { status: 400 }
-        );
-      }
-    }
-    
+
     // 构建创建角色的输入数据
     const characterData: CreateCharacterInput = {
       name: body.name.trim(),
       description: body.description.trim(),
       personality: body.personality,
-      memoryEnabled: body.memoryEnabled,
       avatar: body.avatar,
-      defaultModel: body.defaultModel,
-      temperature: body.temperature,
       promptConfig: body.promptConfig,
       isUserProfile: body.isUserProfile, // 用户角色标识
     };

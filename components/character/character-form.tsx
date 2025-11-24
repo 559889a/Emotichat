@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Sparkles, Settings, Info } from 'lucide-react';
+import { X, User, Sparkles, Info } from 'lucide-react';
 import type { Character, CreateCharacterInput, UpdateCharacterInput } from '@/types/character';
 import type { CharacterPromptConfig } from '@/types/prompt';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -120,14 +118,7 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
   
   // 提示词配置状态
   const [promptConfig, setPromptConfig] = useState<CharacterPromptConfig>(getDefaultPromptConfig());
-  
-  // 高级配置状态
-  const [advancedConfig, setAdvancedConfig] = useState({
-    memoryEnabled: true,
-    temperature: 0.7,
-    defaultModel: '',
-  });
-  
+
   // UI 状态
   const [personalityInput, setPersonalityInput] = useState('');
   const [personality, setPersonality] = useState<string[]>([]);
@@ -147,16 +138,9 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
       
       // 性格标签（保留用于显示）
       setPersonality(character.personality || []);
-      
+
       // 提示词配置（带向后兼容迁移）
       setPromptConfig(migrateOldCharacterToPromptConfig(character));
-      
-      // 高级配置
-      setAdvancedConfig({
-        memoryEnabled: character.memoryEnabled,
-        temperature: character.temperature || 0.7,
-        defaultModel: character.defaultModel || '',
-      });
     } else {
       // 重置表单
       setFormData({
@@ -166,11 +150,6 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
       });
       setPersonality([]);
       setPromptConfig(getDefaultPromptConfig());
-      setAdvancedConfig({
-        memoryEnabled: true,
-        temperature: 0.7,
-        defaultModel: '',
-      });
     }
     setErrors({});
     setPersonalityInput('');
@@ -187,10 +166,6 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
         return newErrors;
       });
     }
-  };
-
-  const handleAdvancedChange = (field: string, value: string | number | boolean) => {
-    setAdvancedConfig(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAddPersonality = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -264,11 +239,6 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
 
         // 新的提示词配置
         promptConfig: finalPromptConfig,
-
-        // 高级配置
-        memoryEnabled: advancedConfig.memoryEnabled,
-        temperature: advancedConfig.temperature,
-        defaultModel: advancedConfig.defaultModel || undefined,
       };
       
       await onSubmit(submitData);
@@ -285,7 +255,7 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
     <form onSubmit={handleSubmit} className={asDialog ? "flex flex-col flex-1 min-h-0" : ""}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-6">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="basic" className="gap-1">
                   <User className="h-4 w-4" />
                   基本信息
@@ -293,10 +263,6 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
                 <TabsTrigger value="prompts" className="gap-1">
                   <Sparkles className="h-4 w-4" />
                   提示词配置
-                </TabsTrigger>
-                <TabsTrigger value="advanced" className="gap-1">
-                  <Settings className="h-4 w-4" />
-                  高级设置
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -403,57 +369,6 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
                   characterName={formData.name || '角色'}
                   hideOpeningMessage={isUserProfile}
                 />
-              </TabsContent>
-
-              {/* 高级设置 Tab */}
-              <TabsContent value="advanced" className="mt-4 space-y-6 pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="memoryEnabled">启用记忆功能</Label>
-                    <p className="text-sm text-muted-foreground">
-                      记住之前的对话内容
-                    </p>
-                  </div>
-                  <Switch
-                    id="memoryEnabled"
-                    checked={advancedConfig.memoryEnabled}
-                    onCheckedChange={(checked) => handleAdvancedChange('memoryEnabled', checked)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="temperature">温度系数</Label>
-                    <span className="text-sm text-muted-foreground">
-                      {advancedConfig.temperature.toFixed(1)}
-                    </span>
-                  </div>
-                  <Slider
-                    id="temperature"
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    value={[advancedConfig.temperature]}
-                    onValueChange={([value]) => handleAdvancedChange('temperature', value)}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    较低的值使回复更确定，较高的值使回复更有创造性
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="defaultModel">默认模型（可选）</Label>
-                  <Input
-                    id="defaultModel"
-                    value={advancedConfig.defaultModel}
-                    onChange={(e) => handleAdvancedChange('defaultModel', e.target.value)}
-                    placeholder="留空使用全局默认模型"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    指定此角色使用的默认 AI 模型
-                  </p>
-                </div>
               </TabsContent>
             </ScrollArea>
           </Tabs>

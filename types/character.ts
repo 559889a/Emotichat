@@ -12,12 +12,10 @@ export interface Character {
   background?: string;           // 背景故事（可选，已废弃）
   exampleDialogues?: string[];   // 示例对话（可选，已废弃）
 
-  // 配置
-  defaultModel?: string;         // 默认使用的模型 ID
-  temperature?: number;          // 默认温度 (0-2)
-
-  // 记忆
-  memoryEnabled: boolean;        // 是否启用记忆功能
+  // 配置（向后兼容，已废弃）
+  defaultModel?: string;         // 默认使用的模型 ID（已废弃，使用全局模型）
+  temperature?: number;          // 默认温度（已废弃，使用预设管理）
+  memoryEnabled?: boolean;       // 是否启用记忆功能（已废弃，在特殊功能页面管理）
 
   // 提示词配置（新提示词系统）
   promptConfig?: CharacterPromptConfig; // 角色级提示词配置（可选）

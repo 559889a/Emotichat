@@ -82,40 +82,14 @@ export async function PUT(
         { status: 400 }
       );
     }
-    
-    if (body.memoryEnabled !== undefined && typeof body.memoryEnabled !== 'boolean') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '记忆功能设置必须是布尔值',
-        },
-        { status: 400 }
-      );
-    }
-    
-    if (body.temperature !== undefined) {
-      const temp = Number(body.temperature);
-      if (isNaN(temp) || temp < 0 || temp > 2) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: '温度值必须在 0-2 之间',
-          },
-          { status: 400 }
-        );
-      }
-    }
-    
+
     // 构建更新数据
     const updateData: UpdateCharacterInput = {};
 
     if (body.name !== undefined) updateData.name = body.name.trim();
     if (body.description !== undefined) updateData.description = body.description.trim();
     if (body.personality !== undefined) updateData.personality = body.personality;
-    if (body.memoryEnabled !== undefined) updateData.memoryEnabled = body.memoryEnabled;
     if (body.avatar !== undefined) updateData.avatar = body.avatar;
-    if (body.defaultModel !== undefined) updateData.defaultModel = body.defaultModel;
-    if (body.temperature !== undefined) updateData.temperature = body.temperature;
     if (body.promptConfig !== undefined) updateData.promptConfig = body.promptConfig;
     if (body.isUserProfile !== undefined) updateData.isUserProfile = body.isUserProfile; // 用户角色标识
     
