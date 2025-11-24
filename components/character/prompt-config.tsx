@@ -229,7 +229,7 @@ export function PromptConfig({
                 showPreview={false}
                 showActions={false}
                 title=""
-                maxHeight="400px"
+                maxHeight="calc(100vh - 280px)"
                 readOnly={readOnly}
               />
             </CardContent>

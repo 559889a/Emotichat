@@ -260,49 +260,51 @@ export function PromptEditor({
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
-      {/* 头部工具栏 */}
-      <Card>
-        <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {title}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {/* 统计信息 */}
-              <div className="text-sm text-muted-foreground mr-4">
-                {enabledCount}/{value.length} 项启用 · ~{totalTokens} tokens
+      {/* 头部工具栏 - 仅在有标题或需要预览时显示 */}
+      {(title || showPreview) && (
+        <Card>
+          <CardHeader className="py-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {title}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {/* 统计信息 */}
+                <div className="text-sm text-muted-foreground mr-4">
+                  {enabledCount}/{value.length} 项启用 · ~{totalTokens} tokens
+                </div>
+
+                {/* 预览切换 */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPreviewPanel(!showPreviewPanel)}
+                >
+                  {showPreviewPanel ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-1" />
+                      隐藏预览
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-1" />
+                      显示预览
+                    </>
+                  )}
+                </Button>
               </div>
-              
-              {/* 预览切换 */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPreviewPanel(!showPreviewPanel)}
-              >
-                {showPreviewPanel ? (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-1" />
-                    隐藏预览
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4 mr-1" />
-                    显示预览
-                  </>
-                )}
-              </Button>
             </div>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* 主内容区 */}
       <div className={cn('grid gap-4', showPreviewPanel ? 'lg:grid-cols-2' : 'grid-cols-1')}>
         {/* 编辑区 */}
-        <Card className="flex flex-col">
-          <CardHeader className="py-3">
+        <Card className="flex flex-col" style={{ maxHeight }}>
+          <CardHeader className="py-3 flex-shrink-0">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">提示词列表</span>
               <div className="flex items-center gap-1">
@@ -325,9 +327,9 @@ export function PromptEditor({
                 >
                   <Download className="h-4 w-4" />
                 </Button>
-                
+
                 <Separator orientation="vertical" className="h-4 mx-1" />
-                
+
                 {/* 全部启用/禁用 */}
                 <Button
                   type="button"
@@ -350,11 +352,11 @@ export function PromptEditor({
               </div>
             </div>
           </CardHeader>
-          
-          <Separator />
-          
-          <CardContent className="p-0 flex-1">
-            <ScrollArea style={{ maxHeight }}>
+
+          <Separator className="flex-shrink-0" />
+
+          <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full">
               <div className="p-4 space-y-3">
                 {sortedItems.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
@@ -397,8 +399,8 @@ export function PromptEditor({
           {/* 添加按钮 */}
           {!readOnly && (
             <>
-              <Separator />
-              <div className="p-3">
+              <Separator className="flex-shrink-0" />
+              <div className="p-3 flex-shrink-0">
                 <Button
                   type="button"
                   variant="outline"
