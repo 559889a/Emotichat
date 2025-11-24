@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Message, MessageRole } from '@/types';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
@@ -66,6 +66,34 @@ export function useMessages({
       apiKey = getStoredApiKey(globalConfig.providerType as AIProviderType);
     }
 
+    // 自定义fetch函数以捕获响应头
+    const customFetch = async (url: string, options: any) => {
+      console.log('[useMessages] Custom fetch called');
+      const response = await fetch(url, options);
+
+      // 读取响应头并触发自定义事件
+      try {
+        const actualRequestBodyHeader = response.headers.get('X-Actual-Request-Body');
+        if (actualRequestBodyHeader) {
+          console.log('[useMessages] Found X-Actual-Request-Body in fetch response');
+          const requestBodyJson = atob(actualRequestBodyHeader);
+          const actualRequestBody = JSON.parse(requestBodyJson);
+
+          // 立即触发事件
+          window.dispatchEvent(new CustomEvent('actualRequestBody', {
+            detail: {
+              requestBody: actualRequestBody,
+              conversationId
+            }
+          }));
+        }
+      } catch (err) {
+        console.error('[useMessages] Error reading response headers in custom fetch:', err);
+      }
+
+      return response;
+    };
+
     return new DefaultChatTransport({
       api: '/api/chat',
       body: {
@@ -73,6 +101,7 @@ export function useMessages({
         globalModelConfig: globalConfig,
         apiKey, // 传递 API Key 到服务端
       },
+      fetch: customFetch as any,
     });
   }, [conversationId, globalConfig]);
 
@@ -96,12 +125,21 @@ export function useMessages({
       });
       console.error('Chat error:', err);
     },
-    onFinish: ({ response }: any) => {
+    onFinish: ({ response, message, finishReason }: any) => {
+      console.log('[useMessages] onFinish called:', {
+        hasResponse: !!response,
+        hasMessage: !!message,
+        finishReason,
+        messageContent: message?.content?.substring(0, 50)
+      });
+
       // 从响应头中读取服务端构建的实际请求体
       try {
         if (response && response.headers) {
+          console.log('[useMessages] Response has headers');
           const actualRequestBodyHeader = response.headers.get('X-Actual-Request-Body');
           if (actualRequestBodyHeader) {
+            console.log('[useMessages] Found X-Actual-Request-Body header');
             // 从 Base64 解码
             const requestBodyJson = atob(actualRequestBodyHeader);
             const actualRequestBody = JSON.parse(requestBodyJson);
@@ -117,7 +155,11 @@ export function useMessages({
                 conversationId
               }
             }));
+          } else {
+            console.warn('[useMessages] X-Actual-Request-Body header not found');
           }
+        } else {
+          console.warn('[useMessages] onFinish: response or response.headers is null/undefined');
         }
       } catch (err) {
         console.error('Failed to parse actual request body:', err);
@@ -467,6 +509,22 @@ export function useMessages({
       fetchMessages();
     }
   }, [conversationId, autoFetch, fetchMessages]);
+
+  /**
+   * 监听 AI 响应完成，重新获取消息列表
+   * 这确保非流式输出也能正确显示
+   */
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    // 当状态从 streaming 变为其他状态时，重新获取消息
+    if (prevStatus === 'streaming' && status !== 'streaming' && conversationId) {
+      console.log('[useMessages] Streaming finished, refetching messages');
+      fetchMessages();
+    }
+  }, [status, conversationId, fetchMessages]);
 
   return {
     messages,
