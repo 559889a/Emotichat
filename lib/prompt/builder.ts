@@ -14,6 +14,7 @@ import type {
   PromptBuildContext,
   PromptItem,
   PromptRole,
+  PromptPreset,
 } from '@/types';
 
 import { replaceVariables, getCurrentSystemVariables } from './variables';
@@ -62,6 +63,7 @@ export interface BuildPromptResult {
  * @param messages - 消息历史
  * @param provider - LLM 提供商
  * @param options - 构建选项
+ * @param activePreset - 活动预设（可选）
  * @returns 构建后的提示词消息数组
  */
 export function buildPrompt(
@@ -69,9 +71,10 @@ export function buildPrompt(
   conversation: Conversation,
   messages: Message[],
   provider: string,
-  options: BuildPromptOptions = {}
+  options: BuildPromptOptions = {},
+  activePreset?: PromptPreset | null
 ): ProcessedPromptMessage[] {
-  const result = buildPromptWithContext(character, conversation, messages, provider, options);
+  const result = buildPromptWithContext(character, conversation, messages, provider, options, activePreset);
   return result.messages;
 }
 
@@ -82,6 +85,7 @@ export function buildPrompt(
  * @param messages - 消息历史
  * @param provider - LLM 提供商
  * @param options - 构建选项
+ * @param activePreset - 活动预设（可选）
  * @returns 构建结果（包含消息和更新的变量）
  */
 export function buildPromptWithContext(
@@ -89,39 +93,54 @@ export function buildPromptWithContext(
   conversation: Conversation,
   messages: Message[],
   provider: string,
-  options: BuildPromptOptions = {}
+  options: BuildPromptOptions = {},
+  activePreset?: PromptPreset | null
 ): BuildPromptResult {
   // 1. 构建上下文
   const context = createBuildContext(character, conversation, messages, options);
-  
-  // 2. 收集所有提示词项
-  const allPromptItems = collectPromptItems(character, conversation);
-  
+
+  // 2. 收集所有提示词项（使用预设或传统方式）
+  const allPromptItems = activePreset
+    ? collectPromptItemsWithPreset(character, conversation, activePreset)
+    : collectPromptItems(character, conversation);
+
   // 3. 创建宏存储（从对话变量初始化）
   const macroStore = createMacroStore(conversation.promptConfig?.variables);
-  
+
   // 4. 处理每个提示词项
-  const processedPromptItems = allPromptItems.map(item => 
+  const processedPromptItems = allPromptItems.map(item =>
     processPromptItem(item, context, macroStore)
   );
-  
+
   // 5. 排序提示词项
   const sortedPromptItems = sortPromptItems(processedPromptItems);
-  
+
   // 6. 分离普通消息和注入消息
   const { normalItems, injectionItems } = separateInjectionItems(sortedPromptItems);
-  
+
   // 7. 构建基础消息数组（包含历史消息）
   let processedMessages = buildBaseMessages(normalItems, messages, context, macroStore);
-  
-  // 8. 处理注入
+
+  // 8. 处理注入（包括 Author's Note，如果有预设）
   processedMessages = processInjections(processedMessages, injectionItems);
-  
-  // 9. Role 适配
+
+  // 9. 注入 Author's Note（如果预设中有）
+  if (activePreset?.authorsNote && activePreset.authorsNote.trim()) {
+    processedMessages = injectAuthorsNote(
+      processedMessages,
+      activePreset.authorsNote,
+      activePreset.authorsNoteDepth || 3,
+      activePreset.authorsNotePosition || 'after',
+      context,
+      macroStore
+    );
+  }
+
+  // 10. Role 适配
   const providerType = normalizeProvider(provider);
   processedMessages = adaptRoleForProvider(processedMessages, providerType);
-  
-  // 10. 后处理
+
+  // 11. 后处理
   let warnings: string[] | undefined;
   if (!options.skipPostProcess) {
     const postProcessResult = advancedPostProcess(
@@ -131,7 +150,7 @@ export function buildPromptWithContext(
     processedMessages = postProcessResult.messages;
     warnings = postProcessResult.warnings.length > 0 ? postProcessResult.warnings : undefined;
   }
-  
+
   return {
     messages: processedMessages,
     updatedVariables: macroStoreToRecord(macroStore),
@@ -185,7 +204,7 @@ function collectPromptItems(
   conversation: Conversation
 ): PromptItem[] {
   const items: PromptItem[] = [];
-  
+
   // 1. 添加角色系统提示词
   if (character.systemPrompt) {
     items.push({
@@ -197,17 +216,17 @@ function collectPromptItems(
       name: 'System Prompt',
     });
   }
-  
+
   // 2. 添加角色级提示词配置
   if (character.promptConfig?.prompts) {
     items.push(...character.promptConfig.prompts);
   }
-  
+
   // 3. 添加对话级提示词配置
   if (conversation.promptConfig?.prompts) {
     items.push(...conversation.promptConfig.prompts);
   }
-  
+
   // 4. 添加对话主提示词
   if (conversation.promptConfig?.mainPrompt) {
     items.push({
@@ -219,8 +238,178 @@ function collectPromptItems(
       name: 'Main Prompt',
     });
   }
-  
+
   return items;
+}
+
+/**
+ * 使用预设收集提示词项（支持引用展开）
+ * 预设控制全局提示词顺序，引用项在此展开
+ */
+function collectPromptItemsWithPreset(
+  character: Character,
+  conversation: Conversation,
+  preset: PromptPreset
+): PromptItem[] {
+  const result: PromptItem[] = [];
+
+  // 按预设的提示词顺序处理
+  const presetPrompts = [...preset.prompts].sort((a, b) => a.order - b.order);
+
+  for (const presetItem of presetPrompts) {
+    if (!presetItem.enabled) continue;
+
+    // 如果是引用类型，展开为实际内容
+    if (presetItem.referenceType) {
+      const expandedItems = expandReferenceItem(presetItem, character, conversation);
+      result.push(...expandedItems);
+    } else {
+      // 普通提示词项，直接添加
+      result.push({ ...presetItem });
+    }
+  }
+
+  // 处理 Scenario（如果有）
+  if (preset.scenario && preset.scenario.trim()) {
+    result.push({
+      id: `scenario-${preset.id}`,
+      order: -1, // 高优先级，放在最前面
+      content: preset.scenario,
+      enabled: true,
+      role: 'system',
+      name: 'Scenario',
+      description: '对话场景设定',
+    });
+  }
+
+  return result;
+}
+
+/**
+ * 展开引用项为实际的提示词项
+ */
+function expandReferenceItem(
+  refItem: PromptItem,
+  character: Character,
+  conversation: Conversation
+): PromptItem[] {
+  const items: PromptItem[] = [];
+
+  switch (refItem.referenceType) {
+    case 'character_prompts':
+      // 引用：角色设定 - 角色的所有提示词
+      if (character.systemPrompt) {
+        items.push({
+          id: `ref-char-system-${character.id}`,
+          order: refItem.order,
+          content: character.systemPrompt,
+          enabled: true,
+          role: 'system',
+          name: '角色系统提示词',
+        });
+      }
+      if (character.promptConfig?.prompts) {
+        items.push(...character.promptConfig.prompts.map(p => ({ ...p, order: refItem.order })));
+      }
+      break;
+
+    case 'user_prompts':
+      // 引用：用户设定 - 暂时留空，需要在运行时查找用户角色
+      // TODO: 在 Chat API 中，需要找到用户角色并传入
+      // 这里先添加一个占位项
+      items.push({
+        id: `ref-user-placeholder`,
+        order: refItem.order,
+        content: '', // 将在运行时填充
+        enabled: true,
+        role: 'system',
+        name: '用户设定占位符',
+        description: '运行时将被用户角色提示词替换',
+      });
+      break;
+
+    case 'chat_history':
+      // 引用：聊天记录 - 不需要在这里处理
+      // 历史消息会在 buildBaseMessages 中添加
+      // 这里添加一个标记项，用于控制历史消息的插入位置
+      items.push({
+        id: `ref-history-marker`,
+        order: refItem.order,
+        content: '', // 特殊标记
+        enabled: true,
+        role: 'system',
+        name: '聊天记录标记',
+        description: '历史消息将插入此位置',
+      });
+      break;
+  }
+
+  return items;
+}
+
+/**
+ * 注入 Author's Note
+ * Author's Note 是一种特殊的注入，通常用于引导对话方向
+ */
+function injectAuthorsNote(
+  messages: ProcessedPromptMessage[],
+  authorsNote: string,
+  depth: number,
+  position: 'before' | 'after' | 'replace',
+  context: PromptBuildContext,
+  macroStore: Map<string, string>
+): ProcessedPromptMessage[] {
+  // 处理 Author's Note 内容
+  let processedNote = authorsNote;
+  processedNote = replaceVariables(processedNote, context);
+  processedNote = replacePlaceholders(processedNote, context);
+  processedNote = expandMacros(processedNote, macroStore);
+
+  // 创建 Author's Note 消息
+  const noteMessage: ProcessedPromptMessage = {
+    role: 'system',
+    content: processedNote,
+    layer: undefined,
+  };
+
+  // 找到注入位置（基于深度）
+  // 深度 N = 往前第 N 条用户消息
+  const userMessageIndices: number[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].role === 'user') {
+      userMessageIndices.push(i);
+    }
+  }
+
+  if (userMessageIndices.length === 0) {
+    // 没有用户消息，添加到末尾
+    return [...messages, noteMessage];
+  }
+
+  // 从后往前数第 depth 条用户消息
+  const targetIndex = userMessageIndices[userMessageIndices.length - Math.min(depth, userMessageIndices.length)];
+
+  // 根据 position 决定插入位置
+  let insertIndex: number;
+  if (position === 'before') {
+    insertIndex = targetIndex;
+  } else if (position === 'after') {
+    insertIndex = targetIndex + 1;
+  } else {
+    // replace - 替换目标消息
+    return [
+      ...messages.slice(0, targetIndex),
+      noteMessage,
+      ...messages.slice(targetIndex + 1),
+    ];
+  }
+
+  // 插入 Author's Note
+  return [
+    ...messages.slice(0, insertIndex),
+    noteMessage,
+    ...messages.slice(insertIndex),
+  ];
 }
 
 /**

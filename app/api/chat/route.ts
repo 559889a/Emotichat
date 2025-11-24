@@ -289,7 +289,8 @@ export async function POST(request: Request) {
       {
         skipPostProcess: false,
         userName: 'User', // 可以从配置中获取
-      }
+      },
+      activePreset // 传入活动预设
     );
 
     console.log('\n=== Built Prompt Messages ===');
