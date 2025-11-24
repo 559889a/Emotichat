@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PromptEditor } from '@/components/prompt';
+import { PresetPromptEditor } from '@/components/preset/preset-prompt-editor';
 import { ScenarioEditor } from './scenario-editor';
 import { AuthorsNoteEditor } from './authors-note-editor';
 import { Settings, Sliders, FileText, BookOpen, Layers } from 'lucide-react';
@@ -380,13 +380,10 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
 
         {/* 提示词编辑 */}
         <TabsContent value="prompts">
-          <PromptEditor
+          <PresetPromptEditor
             value={preset.prompts}
             onChange={(prompts) => updatePreset('prompts', prompts)}
-            showPreview={true}
-            showActions={false}
-            title="预设提示词"
-            readOnly={readOnly}
+            title="提示词排序"
           />
         </TabsContent>
 

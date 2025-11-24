@@ -114,16 +114,29 @@ export interface PostProcessConfig {
  * 提示词项（基础单元）
  * 用于统一提示词编辑器
  */
+/**
+ * 引用类型（用于预设中的特殊提示词项）
+ * 这些项不包含实际内容，而是在构建时动态引用其他来源
+ */
+export type PromptReferenceType =
+  | 'character_prompts'  // 引用：角色设定（角色的所有提示词）
+  | 'user_prompts'       // 引用：用户设定（用户角色的提示词）
+  | 'chat_history';      // 引用：聊天记录（对话历史消息）
+
 export interface PromptItem {
   id: string;                 // 唯一标识符
   order: number;              // 排序序号（决定提示词顺序）
   content: string;            // 提示词内容（支持变量、占位符、宏）
   enabled: boolean;           // 是否启用（开关功能）
   role: PromptRole;           // 角色类型
-  
+
   // 注入配置（可选）
   injection?: PromptInjection;
-  
+
+  // 引用类型（可选，仅用于预设系统）
+  referenceType?: PromptReferenceType;
+  isBuiltInReference?: boolean; // 是否为内置引用项（不可删除）
+
   // 元数据
   name?: string;              // 提示词名称（用于UI显示）
   description?: string;       // 描述信息
