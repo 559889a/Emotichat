@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Settings2,
+  ChevronRight,
 } from 'lucide-react';
 import { VariableInsertMenu } from './variable-insert-menu';
 import type { PromptItem, PromptRole, InjectionPosition } from '@/types/prompt';
@@ -39,6 +40,8 @@ interface PromptItemEditorProps {
   canMoveDown?: boolean;
   showDragHandle?: boolean;
   className?: string;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 /**
@@ -72,9 +75,12 @@ export function PromptItemEditor({
   canMoveDown = true,
   showDragHandle = true,
   className,
+  onDragStart,
+  onDragEnd,
 }: PromptItemEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   // 更新内容
   const handleContentChange = useCallback(
@@ -167,22 +173,145 @@ export function PromptItemEditor({
     }
   };
 
+  // 折叠视图 - 类似 ReferenceItemCard 但背景为白色
+  if (isCollapsed) {
+    return (
+      <Card
+        className={cn(
+          'transition-all bg-white',
+          !item.enabled && 'opacity-50',
+          className
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            {/* 拖动手柄 - 增大尺寸，方便移动端操作 */}
+            <div
+              draggable={!!(onDragStart && onDragEnd)}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              className="flex flex-col items-center justify-center pt-1 cursor-grab active:cursor-grabbing touch-none p-2 -m-2 hover:bg-accent/50 rounded transition-colors"
+              style={{ touchAction: 'none' }}
+            >
+              <GripVertical className="h-6 w-6 text-muted-foreground" />
+            </div>
+
+            {/* 展开按钮 */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              onClick={() => setIsCollapsed(false)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            {/* 内容区 */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-semibold">{item.name || '未命名提示词'}</h4>
+                <span className={cn('px-2 py-0.5 rounded text-xs font-medium', getRoleBadgeClass(item.role))}>
+                  {item.role}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {item.description || item.content.substring(0, 100) + (item.content.length > 100 ? '...' : '')}
+              </p>
+            </div>
+
+            {/* 操作按钮区 */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* 启用/禁用开关 */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {item.enabled ? '已启用' : '已禁用'}
+                </span>
+                <Switch
+                  checked={item.enabled}
+                  onCheckedChange={handleEnabledChange}
+                />
+              </div>
+
+              <div className="h-6 w-px bg-border" />
+
+              {/* 上移按钮 */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onMoveUp}
+                disabled={!canMoveUp}
+                title="上移"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+
+              {/* 下移按钮 */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onMoveDown}
+                disabled={!canMoveDown}
+                title="下移"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+
+              {/* 删除按钮 */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 展开视图 - 完整编辑器
   return (
     <Card
       className={cn(
-        'transition-opacity',
+        'transition-opacity bg-white',
         !item.enabled && 'opacity-60',
         className
       )}
     >
       <CardHeader className="p-3 pb-0">
         <div className="flex items-center gap-2">
-          {/* 拖拽手柄 */}
+          {/* 拖拽手柄 - 增大尺寸，方便移动端操作 */}
           {showDragHandle && (
-            <div className="cursor-grab hover:cursor-grabbing text-muted-foreground">
-              <GripVertical className="h-5 w-5" />
+            <div
+              draggable={!!(onDragStart && onDragEnd)}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              className="cursor-grab active:cursor-grabbing text-muted-foreground touch-none p-1 -m-1 hover:bg-accent/50 rounded transition-colors"
+              style={{ touchAction: 'none' }}
+            >
+              <GripVertical className="h-6 w-6" />
             </div>
           )}
+
+          {/* 折叠按钮 */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setIsCollapsed(true)}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
 
           {/* 启用开关 */}
           <Switch

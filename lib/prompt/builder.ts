@@ -42,6 +42,8 @@ export interface BuildPromptOptions {
   userName?: string;
   /** 额外的系统变量 */
   extraVariables?: Record<string, string>;
+  /** 激活的用户角色（用于 user_prompts 引用和 {{user}} 变量） */
+  activeUserProfile?: Character;
 }
 
 /**
@@ -100,9 +102,11 @@ export function buildPromptWithContext(
   const context = createBuildContext(character, conversation, messages, options);
 
   // 2. 收集所有提示词项（使用预设或传统方式）
+  console.log('[Prompt Builder] Active Preset:', activePreset ? `${activePreset.name} (${activePreset.id})` : 'None');
   const allPromptItems = activePreset
-    ? collectPromptItemsWithPreset(character, conversation, activePreset)
+    ? collectPromptItemsWithPreset(character, conversation, activePreset, options.activeUserProfile)
     : collectPromptItems(character, conversation);
+  console.log('[Prompt Builder] Collected Prompt Items:', allPromptItems.length, 'items');
 
   // 3. 创建宏存储（从对话变量初始化）
   const macroStore = createMacroStore(conversation.promptConfig?.variables);
@@ -121,22 +125,10 @@ export function buildPromptWithContext(
   // 7. 构建基础消息数组（包含历史消息）
   let processedMessages = buildBaseMessages(normalItems, messages, context, macroStore);
 
-  // 8. 处理注入（包括 Author's Note，如果有预设）
+  // 8. 处理注入
   processedMessages = processInjections(processedMessages, injectionItems);
 
-  // 9. 注入 Author's Note（如果预设中有）
-  if (activePreset?.authorsNote && activePreset.authorsNote.trim()) {
-    processedMessages = injectAuthorsNote(
-      processedMessages,
-      activePreset.authorsNote,
-      activePreset.authorsNoteDepth || 3,
-      activePreset.authorsNotePosition || 'after',
-      context,
-      macroStore
-    );
-  }
-
-  // 10. Role 适配
+  // 9. Role 适配
   const providerType = normalizeProvider(provider);
   processedMessages = adaptRoleForProvider(processedMessages, providerType);
 
@@ -249,39 +241,35 @@ function collectPromptItems(
 function collectPromptItemsWithPreset(
   character: Character,
   conversation: Conversation,
-  preset: PromptPreset
+  preset: PromptPreset,
+  activeUserProfile?: Character
 ): PromptItem[] {
   const result: PromptItem[] = [];
 
   // 按预设的提示词顺序处理
   const presetPrompts = [...preset.prompts].sort((a, b) => a.order - b.order);
+  console.log('[collectPromptItemsWithPreset] Processing', presetPrompts.length, 'preset prompts');
 
   for (const presetItem of presetPrompts) {
-    if (!presetItem.enabled) continue;
+    if (!presetItem.enabled) {
+      console.log('[collectPromptItemsWithPreset] Skipping disabled item:', presetItem.name || presetItem.id);
+      continue;
+    }
 
     // 如果是引用类型，展开为实际内容
     if (presetItem.referenceType) {
-      const expandedItems = expandReferenceItem(presetItem, character, conversation);
+      console.log('[collectPromptItemsWithPreset] Expanding reference:', presetItem.referenceType);
+      const expandedItems = expandReferenceItem(presetItem, character, conversation, activeUserProfile);
+      console.log('[collectPromptItemsWithPreset] Expanded to', expandedItems.length, 'items');
       result.push(...expandedItems);
     } else {
       // 普通提示词项，直接添加
+      console.log('[collectPromptItemsWithPreset] Adding custom prompt:', presetItem.name || presetItem.id);
       result.push({ ...presetItem });
     }
   }
 
-  // 处理 Scenario（如果有）
-  if (preset.scenario && preset.scenario.trim()) {
-    result.push({
-      id: `scenario-${preset.id}`,
-      order: -1, // 高优先级，放在最前面
-      content: preset.scenario,
-      enabled: true,
-      role: 'system',
-      name: 'Scenario',
-      description: '对话场景设定',
-    });
-  }
-
+  console.log('[collectPromptItemsWithPreset] Total items collected:', result.length);
   return result;
 }
 
@@ -291,13 +279,16 @@ function collectPromptItemsWithPreset(
 function expandReferenceItem(
   refItem: PromptItem,
   character: Character,
-  conversation: Conversation
+  conversation: Conversation,
+  activeUserProfile?: Character
 ): PromptItem[] {
   const items: PromptItem[] = [];
 
   switch (refItem.referenceType) {
     case 'character_prompts':
       // 引用：角色设定 - 角色的所有提示词
+      console.log('[expandReferenceItem] character_prompts - has systemPrompt:', !!character.systemPrompt);
+      console.log('[expandReferenceItem] character_prompts - has promptConfig.prompts:', !!character.promptConfig?.prompts, character.promptConfig?.prompts?.length || 0);
       if (character.systemPrompt) {
         items.push({
           id: `ref-char-system-${character.id}`,
@@ -314,24 +305,35 @@ function expandReferenceItem(
       break;
 
     case 'user_prompts':
-      // 引用：用户设定 - 暂时留空，需要在运行时查找用户角色
-      // TODO: 在 Chat API 中，需要找到用户角色并传入
-      // 这里先添加一个占位项
-      items.push({
-        id: `ref-user-placeholder`,
-        order: refItem.order,
-        content: '', // 将在运行时填充
-        enabled: true,
-        role: 'system',
-        name: '用户设定占位符',
-        description: '运行时将被用户角色提示词替换',
-      });
+      // 引用：用户设定 - 使用激活的用户角色
+      console.log('[expandReferenceItem] user_prompts - has activeUserProfile:', !!activeUserProfile);
+      if (activeUserProfile) {
+        console.log('[expandReferenceItem] user_prompts - has systemPrompt:', !!activeUserProfile.systemPrompt);
+        console.log('[expandReferenceItem] user_prompts - has promptConfig.prompts:', !!activeUserProfile.promptConfig?.prompts, activeUserProfile.promptConfig?.prompts?.length || 0);
+        // 添加用户角色的系统提示词
+        if (activeUserProfile.systemPrompt) {
+          items.push({
+            id: `ref-user-system-${activeUserProfile.id}`,
+            order: refItem.order,
+            content: activeUserProfile.systemPrompt,
+            enabled: true,
+            role: 'system',
+            name: '用户角色系统提示词',
+          });
+        }
+        // 添加用户角色的自定义提示词
+        if (activeUserProfile.promptConfig?.prompts) {
+          items.push(...activeUserProfile.promptConfig.prompts.map(p => ({ ...p, order: refItem.order })));
+        }
+      }
+      // 如果没有激活的用户角色，不添加任何内容（引用为空）
       break;
 
     case 'chat_history':
       // 引用：聊天记录 - 不需要在这里处理
       // 历史消息会在 buildBaseMessages 中添加
       // 这里添加一个标记项，用于控制历史消息的插入位置
+      console.log('[expandReferenceItem] chat_history - adding marker');
       items.push({
         id: `ref-history-marker`,
         order: refItem.order,
@@ -344,6 +346,7 @@ function expandReferenceItem(
       break;
   }
 
+  console.log('[expandReferenceItem]', refItem.referenceType, '- returned', items.length, 'items');
   return items;
 }
 
@@ -480,6 +483,7 @@ function buildBaseMessages(
   macroStore: Map<string, string>
 ): ProcessedPromptMessage[] {
   const result: ProcessedPromptMessage[] = [];
+  console.log('[buildBaseMessages] Processing', promptItems.length, 'prompt items and', historyMessages.length, 'history messages');
 
   // 处理历史消息（将在遇到标记时插入）
   const processedHistoryMessages: ProcessedPromptMessage[] = [];
@@ -503,6 +507,7 @@ function buildBaseMessages(
   const hasHistoryMarker = promptItems.some(
     item => item.id === 'ref-history-marker' && item.enabled && !item.injection?.enabled
   );
+  console.log('[buildBaseMessages] Has history marker:', hasHistoryMarker);
 
   // 遍历提示词项
   for (const item of promptItems) {
@@ -510,16 +515,19 @@ function buildBaseMessages(
 
     // 遇到聊天记录标记，插入历史消息
     if (item.id === 'ref-history-marker') {
+      console.log('[buildBaseMessages] Inserting', processedHistoryMessages.length, 'history messages at marker position');
       result.push(...processedHistoryMessages);
       continue;
     }
 
     // 跳过空内容的占位符（如 ref-user-placeholder）
     if (item.content.trim() === '' && item.id.startsWith('ref-')) {
+      console.log('[buildBaseMessages] Skipping empty reference placeholder:', item.id);
       continue;
     }
 
     // 添加普通提示词项
+    console.log('[buildBaseMessages] Adding prompt item:', item.name || item.id, '- content length:', item.content.length);
     result.push({
       role: item.role,
       content: item.content,
@@ -529,9 +537,11 @@ function buildBaseMessages(
 
   // 如果没有聊天记录标记，默认将历史消息添加到末尾（向后兼容）
   if (!hasHistoryMarker) {
+    console.log('[buildBaseMessages] No history marker found, appending', processedHistoryMessages.length, 'history messages to end');
     result.push(...processedHistoryMessages);
   }
 
+  console.log('[buildBaseMessages] Final result:', result.length, 'messages');
   return result;
 }
 

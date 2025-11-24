@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Plus,
   GripVertical,
@@ -135,6 +136,9 @@ export function PresetPromptEditor({
   maxHeight = '600px',
   className,
 }: PresetPromptEditorProps) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   // 确保内置引用项存在
   useEffect(() => {
     const hasCharacterRef = value.some(
@@ -242,6 +246,45 @@ export function PresetPromptEditor({
     [value, onChange]
   );
 
+  // 拖拽开始
+  const handleDragStart = useCallback((index: number) => {
+    setDraggedIndex(index);
+  }, []);
+
+  // 拖拽经过
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }, []);
+
+  // 拖拽结束
+  const handleDragEnd = useCallback(() => {
+    if (draggedIndex === null || dragOverIndex === null || draggedIndex === dragOverIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newItems = [...sortedItems];
+    const [draggedItem] = newItems.splice(draggedIndex, 1);
+    newItems.splice(dragOverIndex, 0, draggedItem);
+
+    // 重新设置 order
+    const reorderedItems = newItems.map((item, index) => ({
+      ...item,
+      order: index,
+    }));
+
+    onChange(reorderedItems);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }, [draggedIndex, dragOverIndex, sortedItems, onChange]);
+
+  // 拖拽离开
+  const handleDragLeave = useCallback(() => {
+    setDragOverIndex(null);
+  }, []);
+
   return (
     <div className={cn('space-y-4', className)}>
       {/* 标题和说明 */}
@@ -253,45 +296,57 @@ export function PresetPromptEditor({
       </div>
 
       {/* 提示词列表 */}
-      <ScrollArea style={{ maxHeight }} className="border rounded-md">
-        <div className="p-4 space-y-3">
-          {sortedItems.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>暂无提示词项</p>
-              <p className="text-sm mt-2">点击下方按钮添加自定义提示词</p>
+      <div className="border rounded-md p-4 space-y-3">
+        {sortedItems.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>暂无提示词项</p>
+            <p className="text-sm mt-2">点击下方按钮添加自定义提示词</p>
+          </div>
+        ) : (
+          sortedItems.map((item, index) => (
+            <div
+              key={item.id}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              className={cn(
+                'transition-all',
+                draggedIndex === index && 'opacity-50',
+                dragOverIndex === index && 'border-t-2 border-primary pt-2'
+              )}
+            >
+              {item.referenceType ? (
+                // 内置引用项 - 特殊显示
+                <ReferenceItemCard
+                  item={item}
+                  index={index}
+                  totalCount={sortedItems.length}
+                  onMoveUp={() => handleMoveUp(index)}
+                  onMoveDown={() => handleMoveDown(index)}
+                  onToggleEnabled={() => handleToggleEnabled(item.id)}
+                  onDragStart={() => handleDragStart(index)}
+                  onDragEnd={handleDragEnd}
+                  isDragging={draggedIndex === index}
+                />
+              ) : (
+                // 普通提示词项 - 使用编辑器
+                <PromptItemEditor
+                  item={item}
+                  onChange={(updated) => handleUpdateItem(item.id, updated)}
+                  onDelete={() => handleDeleteItem(item.id)}
+                  onMoveUp={index > 0 ? () => handleMoveUp(index) : undefined}
+                  onMoveDown={
+                    index < sortedItems.length - 1
+                      ? () => handleMoveDown(index)
+                      : undefined
+                  }
+                  onDragStart={() => handleDragStart(index)}
+                  onDragEnd={handleDragEnd}
+                />
+              )}
             </div>
-          ) : (
-            sortedItems.map((item, index) => (
-              <div key={item.id}>
-                {item.referenceType ? (
-                  // 内置引用项 - 特殊显示
-                  <ReferenceItemCard
-                    item={item}
-                    index={index}
-                    totalCount={sortedItems.length}
-                    onMoveUp={() => handleMoveUp(index)}
-                    onMoveDown={() => handleMoveDown(index)}
-                    onToggleEnabled={() => handleToggleEnabled(item.id)}
-                  />
-                ) : (
-                  // 普通提示词项 - 使用编辑器
-                  <PromptItemEditor
-                    item={item}
-                    onChange={(updated) => handleUpdateItem(item.id, updated)}
-                    onDelete={() => handleDeleteItem(item.id)}
-                    onMoveUp={index > 0 ? () => handleMoveUp(index) : undefined}
-                    onMoveDown={
-                      index < sortedItems.length - 1
-                        ? () => handleMoveDown(index)
-                        : undefined
-                    }
-                  />
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </ScrollArea>
+          ))
+        )}
+      </div>
 
       {/* 添加按钮 */}
       <div className="flex justify-center">
@@ -314,6 +369,9 @@ interface ReferenceItemCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onToggleEnabled: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  isDragging?: boolean;
 }
 
 function ReferenceItemCard({
@@ -323,6 +381,9 @@ function ReferenceItemCard({
   onMoveUp,
   onMoveDown,
   onToggleEnabled,
+  onDragStart,
+  onDragEnd,
+  isDragging = false,
 }: ReferenceItemCardProps) {
   if (!item.referenceType) return null;
 
@@ -339,9 +400,15 @@ function ReferenceItemCard({
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          {/* 拖动手柄 */}
-          <div className="flex flex-col items-center gap-1 pt-1">
-            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+          {/* 拖动手柄 - 增大尺寸，方便移动端操作 */}
+          <div
+            draggable
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            className="flex flex-col items-center justify-center pt-1 cursor-grab active:cursor-grabbing touch-none p-2 -m-2 hover:bg-accent/50 rounded transition-colors"
+            style={{ touchAction: 'none' }}
+          >
+            <GripVertical className="h-6 w-6 text-muted-foreground" />
           </div>
 
           {/* 图标 */}
@@ -362,24 +429,17 @@ function ReferenceItemCard({
           </div>
 
           {/* 操作按钮区 */}
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* 启用/禁用开关 */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onToggleEnabled}
-              title={item.enabled ? '禁用' : '启用'}
-            >
-              <div
-                className={cn(
-                  'h-4 w-4 rounded-full border-2 transition-colors',
-                  item.enabled
-                    ? 'bg-primary border-primary'
-                    : 'bg-background border-muted-foreground'
-                )}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {item.enabled ? '已启用' : '已禁用'}
+              </span>
+              <Switch
+                checked={item.enabled}
+                onCheckedChange={onToggleEnabled}
               />
-            </Button>
+            </div>
 
             <Separator orientation="vertical" className="h-6" />
 

@@ -32,22 +32,36 @@ export function MessageList({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(messages.length);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  // 滚动到底部的辅助函数
+  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
+    // 查找 ScrollArea 的 viewport 元素
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+    if (viewport) {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior,
+      });
+    }
+  };
 
   // 自动滚动到底部（仅当有新消息时）
   useEffect(() => {
     const isNewMessage = messages.length > previousMessageCountRef.current;
-    
-    if (isNewMessage && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+
+    if (isNewMessage) {
+      scrollToBottom('smooth');
     }
-    
+
     previousMessageCountRef.current = messages.length;
   }, [messages.length]);
 
   // 初始加载时滚动到底部
   useEffect(() => {
-    if (messages.length > 0 && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'auto' });
+    if (messages.length > 0) {
+      // 使用 setTimeout 确保 DOM 已完全渲染
+      setTimeout(() => scrollToBottom('auto'), 0);
     }
   }, []);
 
@@ -56,8 +70,9 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="h-full px-2 sm:px-3 md:px-4">
-      <div ref={scrollAreaRef} className="max-w-4xl mx-auto py-4 sm:py-6 space-y-1">
+    <div ref={scrollAreaRef} className="h-full">
+      <ScrollArea className="h-full px-2 sm:px-3 md:px-4">
+        <div className="max-w-4xl mx-auto py-4 sm:py-6 space-y-1">
         {messages.map((message, index) => {
           // 第一条消息或 ID 为 'welcome-message' 的消息不显示操作按钮
           const isWelcomeMessage = index === 0 || message.id === 'welcome-message'
@@ -119,7 +134,8 @@ export function MessageList({
 
         {/* 滚动锚点 */}
         <div ref={bottomRef} />
-      </div>
-    </ScrollArea>
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

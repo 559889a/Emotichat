@@ -12,9 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PresetPromptEditor } from '@/components/preset/preset-prompt-editor';
-import { ScenarioEditor } from './scenario-editor';
-import { AuthorsNoteEditor } from './authors-note-editor';
-import { Settings, Sliders, FileText, BookOpen, Layers } from 'lucide-react';
+import { Settings, Sliders, FileText } from 'lucide-react';
 import type { PromptPreset, ModelParameters, ContextLimitConfig } from '@/types/prompt';
 
 /**
@@ -104,15 +102,11 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
 
 /**
  * 预设编辑器组件
- * 
+ *
  * 功能：
  * - 基本信息编辑（名称、描述）
- * - 模型参数配置 + Enable 开关
- * - 上下文限制设置
+ * - 模型参数配置 + Enable 开关 + 上下文限制
  * - 提示词编辑
- * - Scenario 编辑
- * - Author's Note 编辑
- * - 全局位置调节
  */
 export function PresetEditor({ preset, onChange, readOnly = false }: PresetEditorProps) {
   const [activeTab, setActiveTab] = useState('basic');
@@ -159,7 +153,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="basic">
             <Settings className="h-4 w-4 mr-2" />
             基本信息
@@ -172,14 +166,6 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
             <FileText className="h-4 w-4 mr-2" />
             提示词
           </TabsTrigger>
-          <TabsTrigger value="scenario">
-            <BookOpen className="h-4 w-4 mr-2" />
-            Scenario
-          </TabsTrigger>
-          <TabsTrigger value="authors-note">
-            <Layers className="h-4 w-4 mr-2" />
-            Author&apos;s Note
-          </TabsTrigger>
         </TabsList>
 
         {/* 基本信息 */}
@@ -187,7 +173,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
           <Card>
             <CardHeader>
               <CardTitle>预设信息</CardTitle>
-              <CardDescription>配置预设的基本信息和全局设置</CardDescription>
+              <CardDescription>配置预设的基本信息</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* 预设名称 */}
@@ -214,48 +200,34 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                   className="min-h-[100px]"
                 />
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <Separator />
-
-              {/* 全局位置 */}
-              <div className="space-y-2">
-                <Label htmlFor="globalPosition">全局位置</Label>
-                <Select
-                  value={preset.globalPosition}
-                  onValueChange={(value: any) => updatePreset('globalPosition', value)}
-                  disabled={readOnly}
-                >
-                  <SelectTrigger id="globalPosition">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="before_all">最前（在所有提示词之前）</SelectItem>
-                    <SelectItem value="after_character">角色之后（在角色提示词之后）</SelectItem>
-                    <SelectItem value="before_user">用户之前（在用户消息之前）</SelectItem>
-                    <SelectItem value="custom">自定义位置</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  决定预设的提示词在整体提示词序列中的位置
-                </p>
-              </div>
-
-              {/* 自定义排序（仅在 custom 模式下显示） */}
-              {preset.globalPosition === 'custom' && (
-                <div className="space-y-2">
-                  <Label htmlFor="customOrder">自定义排序</Label>
-                  <Input
-                    id="customOrder"
-                    type="number"
-                    value={preset.customOrder || 0}
-                    onChange={(e) => updatePreset('customOrder', parseInt(e.target.value) || 0)}
-                    disabled={readOnly}
-                  />
+        {/* 模型参数 */}
+        <TabsContent value="parameters" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>输出设置</CardTitle>
+              <CardDescription>
+                配置 AI 响应的输出方式
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="stream">流式输出</Label>
                   <p className="text-xs text-muted-foreground">
-                    数字越小，位置越靠前
+                    启用后 AI 将逐字输出响应，禁用后将一次性返回完整响应
                   </p>
                 </div>
-              )}
+                <Switch
+                  id="stream"
+                  checked={preset.stream !== false} // 默认 true
+                  onCheckedChange={(checked) => updatePreset('stream', checked)}
+                  disabled={readOnly}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -320,10 +292,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* 模型参数 */}
-        <TabsContent value="parameters" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>模型参数配置</CardTitle>
@@ -384,28 +353,6 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
             value={preset.prompts}
             onChange={(prompts) => updatePreset('prompts', prompts)}
             title="提示词排序"
-          />
-        </TabsContent>
-
-        {/* Scenario 编辑 */}
-        <TabsContent value="scenario">
-          <ScenarioEditor
-            value={preset.scenario || ''}
-            onChange={(scenario) => updatePreset('scenario', scenario)}
-            disabled={readOnly}
-          />
-        </TabsContent>
-
-        {/* Author's Note 编辑 */}
-        <TabsContent value="authors-note">
-          <AuthorsNoteEditor
-            value={preset.authorsNote || ''}
-            depth={preset.authorsNoteDepth || 3}
-            position={preset.authorsNotePosition || 'after'}
-            onValueChange={(value) => updatePreset('authorsNote', value)}
-            onDepthChange={(depth) => updatePreset('authorsNoteDepth', depth)}
-            onPositionChange={(position) => updatePreset('authorsNotePosition', position)}
-            disabled={readOnly}
           />
         </TabsContent>
       </Tabs>

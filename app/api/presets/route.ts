@@ -8,13 +8,13 @@ import type { PromptPreset } from '@/types/prompt';
 
 /**
  * GET /api/presets
- * 获取所有预设和活动预设 ID
+ * 获取所有用户预设和活动预设 ID
  */
 export async function GET() {
   try {
     const presets = await loadAllPresets();
     const activePresetId = await getActivePresetId();
-    
+
     return NextResponse.json({
       presets,
       activePresetId,
@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const preset: PromptPreset = await request.json();
-    
+
     // 验证必需字段
     if (!preset.id || !preset.name) {
       return NextResponse.json(
@@ -43,17 +43,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
-    // 禁止修改内置预设
-    if (preset.isBuiltIn) {
-      return NextResponse.json(
-        { error: 'Cannot modify built-in preset' },
-        { status: 403 }
-      );
-    }
-    
+
     await savePreset(preset);
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error saving preset:', error);

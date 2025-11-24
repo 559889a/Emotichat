@@ -278,7 +278,7 @@ export async function savePreset(preset: PromptPreset): Promise<void> {
 }
 
 /**
- * 加载单个预设
+ * 加载单个预设（仅从用户预设文件加载）
  */
 export async function loadPreset(id: string): Promise<PromptPreset | null> {
   try {
@@ -296,16 +296,27 @@ export async function loadPreset(id: string): Promise<PromptPreset | null> {
 export async function deletePreset(id: string): Promise<void> {
   try {
     const presets = await loadAllPresets();
-    const filtered = presets.filter((p) => p.id !== id && !p.isBuiltIn);
-    
+
+    // 防止删除最后一个预设
+    if (presets.length <= 1) {
+      throw new Error('Cannot delete the last preset. At least one preset must exist.');
+    }
+
+    const presetToDelete = presets.find(p => p.id === id);
+    if (!presetToDelete) {
+      throw new Error(`Preset ${id} not found`);
+    }
+
+    const wasActive = presetToDelete.isActive === true;
+    const filtered = presets.filter((p) => p.id !== id);
+
+    // 如果删除的是活动预设，激活第一个剩余的预设
+    if (wasActive && filtered.length > 0) {
+      filtered[0].isActive = true;
+    }
+
     await ensureConfigDir();
     await fs.writeFile(PRESETS_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
-    
-    // 如果删除的是活动预设，清除活动预设ID
-    const activeId = await getActivePresetId();
-    if (activeId === id) {
-      await setActivePresetId(null);
-    }
   } catch (error) {
     console.error('Error deleting preset:', error);
     throw error;
@@ -317,29 +328,37 @@ export async function deletePreset(id: string): Promise<void> {
  */
 export async function getActivePresetId(): Promise<string | null> {
   try {
-    await ensureConfigDir();
-    const content = await fs.readFile(ACTIVE_PRESET_FILE, 'utf-8');
-    const data = JSON.parse(content);
-    return data.activePresetId || null;
+    const presets = await loadAllPresets();
+    const activePreset = presets.find(p => p.isActive === true);
+    return activePreset?.id || null;
   } catch (error) {
-    // 文件不存在或解析失败
+    console.error('Error getting active preset ID:', error);
     return null;
   }
 }
 
 /**
- * 设置活动预设ID
+ * 激活预设（全局唯一激活策略）
  */
-export async function setActivePresetId(id: string | null): Promise<void> {
+export async function activatePreset(id: string): Promise<void> {
   try {
+    const presets = await loadAllPresets();
+    const presetToActivate = presets.find(p => p.id === id);
+
+    if (!presetToActivate) {
+      throw new Error(`Preset ${id} not found`);
+    }
+
+    // 停用所有预设，激活目标预设
+    const updatedPresets = presets.map(p => ({
+      ...p,
+      isActive: p.id === id,
+    }));
+
     await ensureConfigDir();
-    await fs.writeFile(
-      ACTIVE_PRESET_FILE,
-      JSON.stringify({ activePresetId: id }, null, 2),
-      'utf-8'
-    );
+    await fs.writeFile(PRESETS_FILE, JSON.stringify(updatedPresets, null, 2), 'utf-8');
   } catch (error) {
-    console.error('Error setting active preset:', error);
+    console.error('Error activating preset:', error);
     throw error;
   }
 }
@@ -349,12 +368,21 @@ export async function setActivePresetId(id: string | null): Promise<void> {
  */
 export async function getActivePreset(): Promise<PromptPreset | null> {
   try {
-    const activeId = await getActivePresetId();
-    if (!activeId) return null;
-    
-    return await loadPreset(activeId);
+    const presets = await loadAllPresets();
+    const activePreset = presets.find(p => p.isActive === true);
+    return activePreset || null;
   } catch (error) {
     console.error('Error getting active preset:', error);
     return null;
+  }
+}
+
+/**
+ * 设置活动预设ID（兼容旧接口，内部调用 activatePreset）
+ * @deprecated Use activatePreset instead
+ */
+export async function setActivePresetId(id: string | null): Promise<void> {
+  if (id) {
+    await activatePreset(id);
   }
 }

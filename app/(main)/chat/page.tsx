@@ -387,6 +387,49 @@ function ChatPageContent() {
     }
   }, [messages, messagesLoading, devModeSettings.enabled, devModeSettings.maxHistorySize, fullConversation, currentCharacter]);
 
+  // Dev Mode: 监听服务端实际请求体事件，更新 devmode 日志
+  useEffect(() => {
+    if (!devModeSettings.enabled) return;
+
+    const handleActualRequestBody = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { requestBody, conversationId: eventConvId } = customEvent.detail;
+
+      if (eventConvId !== conversationId) return;
+
+      console.log('[Dev Mode] Updating devmode log with actual request body');
+
+      // 更新最新的 devmode 日志
+      setDevModeLogs(prev => {
+        if (prev.length === 0) return prev;
+
+        const latestLog = prev[prev.length - 1];
+
+        // 直接使用服务端构建的完整请求体
+        const updatedLog = {
+          ...latestLog,
+          apiRequest: {
+            ...latestLog.apiRequest,
+            messages: requestBody.messages.map((m: any) => ({
+              id: crypto.randomUUID(),
+              role: m.role,
+              content: m.content,
+              layer: 0,
+            })),
+            requestBody: requestBody, // 使用服务端的完整请求体
+          },
+        };
+
+        return [...prev.slice(0, -1), updatedLog];
+      });
+    };
+
+    window.addEventListener('actualRequestBody', handleActualRequestBody);
+    return () => {
+      window.removeEventListener('actualRequestBody', handleActualRequestBody);
+    };
+  }, [devModeSettings.enabled, conversationId]);
+
   // 加载状态
   if (conversationsLoading && !currentConversation && conversationId) {
     return (

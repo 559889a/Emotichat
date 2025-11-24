@@ -40,6 +40,27 @@ export default function CharactersPage() {
     await deleteCharacter(character.id);
   };
 
+  // 处理用户角色激活状态变更
+  const handleActivationChange = async (character: Character, isActive: boolean) => {
+    try {
+      const endpoint = `/api/characters/${character.id}/activate`;
+      const response = await fetch(endpoint, {
+        method: isActive ? 'POST' : 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '操作失败');
+      }
+
+      // 刷新页面以获取最新数据
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to change activation:', error);
+      throw error;
+    }
+  };
+
   // 加载状态
   if (loading) {
     return (
@@ -71,7 +92,7 @@ export default function CharactersPage() {
   }
 
   // 渲染角色列表
-  const renderCharacterList = (characterList: Character[], emptyMessage: string, createAction: () => void, createLabel: string) => {
+  const renderCharacterList = (characterList: Character[], emptyMessage: string, createAction: () => void, createLabel: string, isUserProfileList: boolean = false) => {
     if (characterList.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 px-4">
@@ -95,6 +116,7 @@ export default function CharactersPage() {
             character={character}
             onEdit={() => handleEditClick(character)}
             onDelete={() => handleDeleteClick(character)}
+            onActivationChange={isUserProfileList ? (isActive) => handleActivationChange(character, isActive) : undefined}
           />
         ))}
       </div>
@@ -148,7 +170,8 @@ export default function CharactersPage() {
                   aiCharacters,
                   '还没有对话角色',
                   handleCreateAICharacter,
-                  '创建第一个对话角色'
+                  '创建第一个对话角色',
+                  false
                 )}
               </TabsContent>
 
@@ -158,7 +181,8 @@ export default function CharactersPage() {
                   userProfiles,
                   '还没有用户角色',
                   handleCreateUserProfile,
-                  '创建第一个用户角色'
+                  '创建第一个用户角色',
+                  true // 用户角色列表需要激活开关
                 )}
               </TabsContent>
             </Tabs>

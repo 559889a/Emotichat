@@ -219,7 +219,7 @@ export async function deleteCharacter(id: string): Promise<boolean> {
   try {
     await ensureDataDir();
     const filePath = path.join(DATA_DIR, `${id}.json`);
-    
+
     return await withFileLock(filePath, async () => {
       await fs.unlink(filePath);
       return true;
@@ -229,6 +229,65 @@ export async function deleteCharacter(id: string): Promise<boolean> {
       return false;
     }
     console.error('Error deleting character:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取激活的用户角色
+ */
+export async function getActiveUserProfile(): Promise<Character | null> {
+  try {
+    const allCharacters = await getAllCharacters();
+    const activeProfile = allCharacters.find(
+      char => char.isUserProfile === true && char.isActive === true
+    );
+    return activeProfile || null;
+  } catch (error) {
+    console.error('Error getting active user profile:', error);
+    return null;
+  }
+}
+
+/**
+ * 设置激活的用户角色
+ * 确保全局只有一个激活的用户角色
+ */
+export async function setActiveUserProfile(id: string): Promise<Character | null> {
+  try {
+    await ensureDataDir();
+
+    // 1. 获取要激活的角色
+    const targetCharacter = await getCharacterById(id);
+    if (!targetCharacter || !targetCharacter.isUserProfile) {
+      throw new Error('Character not found or is not a user profile');
+    }
+
+    // 2. 取消所有其他用户角色的激活状态
+    const allCharacters = await getAllCharacters();
+    for (const char of allCharacters) {
+      if (char.isUserProfile && char.isActive && char.id !== id) {
+        await updateCharacter(char.id, { isActive: false });
+      }
+    }
+
+    // 3. 激活目标角色
+    const updated = await updateCharacter(id, { isActive: true });
+    return updated;
+  } catch (error) {
+    console.error('Error setting active user profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * 取消用户角色的激活状态
+ */
+export async function deactivateUserProfile(id: string): Promise<Character | null> {
+  try {
+    return await updateCharacter(id, { isActive: false });
+  } catch (error) {
+    console.error('Error deactivating user profile:', error);
     throw error;
   }
 }

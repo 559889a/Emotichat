@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages, type UIMessage } from 'ai';
+import { streamText, generateText, convertToModelMessages, type UIMessage } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -6,7 +6,7 @@ import { addMessage, getConversationById } from '@/lib/storage/conversations';
 import { getProviderById, getCustomProviders } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
 import { maskSensitiveData } from '@/lib/utils';
-import { getCharacterById } from '@/lib/storage/characters';
+import { getCharacterById, getActiveUserProfile } from '@/lib/storage/characters';
 import { getActivePreset } from '@/lib/storage/config';
 import { buildPrompt } from '@/lib/prompt/builder';
 import type { Message } from '@/types';
@@ -66,6 +66,9 @@ export async function POST(request: Request) {
     // 获取活动预设（可选）
     const activePreset = await getActivePreset();
 
+    // 获取激活的用户角色（用于 user_prompts 引用和 {{user}} 变量）
+    const activeUserProfile = await getActiveUserProfile();
+
     // 转换 UI 消息为我们的 Message 类型
     const historyMessages: Message[] = messages.map(msg => {
       let content = '';
@@ -87,6 +90,7 @@ export async function POST(request: Request) {
     console.log('\n=== Building Prompt with Prompt System ===');
     console.log('Character:', character.name);
     console.log('Active Preset:', activePreset?.name || 'None');
+    console.log('Active User Profile:', activeUserProfile?.name || 'None');
     console.log('History Messages:', historyMessages.length);
     console.log('==========================================\n');
 
@@ -281,6 +285,9 @@ export async function POST(request: Request) {
       providerName = 'gemini';
     }
 
+    // 使用激活用户角色的名称作为 userName，否则默认为 'User'
+    const userName = activeUserProfile?.name || 'User';
+
     const builtMessages = buildPrompt(
       character,
       conversation,
@@ -288,7 +295,8 @@ export async function POST(request: Request) {
       providerName,
       {
         skipPostProcess: false,
-        userName: 'User', // 可以从配置中获取
+        userName, // 使用激活用户角色的名称
+        activeUserProfile: activeUserProfile || undefined, // 传递激活的用户角色
       },
       activePreset // 传入活动预设
     );
@@ -338,11 +346,37 @@ export async function POST(request: Request) {
       parameters = { ...parameters, ...presetParams };
     }
 
-    // 构建流式调用参数
-    const streamOptions: any = {
+    // 检查是否启用流式输出（默认为 true）
+    const useStream = activePreset?.stream !== false;
+
+    // 构建 AI 请求参数
+    const requestOptions: any = {
       model,
       messages: modelMessages,
-      async onFinish({ text, finishReason }: { text: string; finishReason: string }) {
+    };
+
+    // 应用模型参数（如果提供）
+    if (parameters) {
+      if (parameters.temperature !== undefined) {
+        requestOptions.temperature = parameters.temperature;
+      }
+      if (parameters.topP !== undefined) {
+        requestOptions.topP = parameters.topP;
+      }
+      if (parameters.maxTokens && parameters.maxTokens > 0) {
+        requestOptions.maxSteps = parameters.maxTokens;
+      }
+      if (parameters.presencePenalty !== undefined) {
+        requestOptions.presencePenalty = parameters.presencePenalty;
+      }
+      if (parameters.frequencyPenalty !== undefined) {
+        requestOptions.frequencyPenalty = parameters.frequencyPenalty;
+      }
+    }
+
+    // 如果使用流式输出，添加 onFinish 回调
+    if (useStream) {
+      requestOptions.onFinish = async ({ text, finishReason }: { text: string; finishReason: string }) => {
         console.log('Stream finished:', {
           textLength: text?.length || 0,
           finishReason,
@@ -359,26 +393,7 @@ export async function POST(request: Request) {
         } else {
           console.error('No text received from AI model');
         }
-      },
-    };
-
-    // 应用模型参数（如果提供）
-    if (parameters) {
-      if (parameters.temperature !== undefined) {
-        streamOptions.temperature = parameters.temperature;
-      }
-      if (parameters.topP !== undefined) {
-        streamOptions.topP = parameters.topP;
-      }
-      if (parameters.maxTokens && parameters.maxTokens > 0) {
-        streamOptions.maxSteps = parameters.maxTokens;
-      }
-      if (parameters.presencePenalty !== undefined) {
-        streamOptions.presencePenalty = parameters.presencePenalty;
-      }
-      if (parameters.frequencyPenalty !== undefined) {
-        streamOptions.frequencyPenalty = parameters.frequencyPenalty;
-      }
+      };
     }
 
     // 调用 AI 模型
@@ -387,23 +402,129 @@ export async function POST(request: Request) {
     console.log('Provider:', providerType);
     console.log('Base URL:', baseUrl || 'default');
     console.log('Messages count:', modelMessages.length);
+    console.log('Stream Mode:', useStream);
     console.log('Parameters:', {
-      temperature: streamOptions.temperature,
-      topP: streamOptions.topP,
-      maxSteps: streamOptions.maxSteps,
-      presencePenalty: streamOptions.presencePenalty,
-      frequencyPenalty: streamOptions.frequencyPenalty,
+      temperature: requestOptions.temperature,
+      topP: requestOptions.topP,
+      maxSteps: requestOptions.maxSteps,
+      presencePenalty: requestOptions.presencePenalty,
+      frequencyPenalty: requestOptions.frequencyPenalty,
     });
     console.log('===========================\n');
 
-    try {
-      const result = streamText(streamOptions);
+    // 准备 DevMode 请求体（在生成响应前）
+    const actualRequestBody: any = {
+      model: modelId,
+      messages: modelMessages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+    };
 
-      // 返回 UI 消息流响应（重要：与 useChat 配合使用）
-      return result.toUIMessageStreamResponse();
-    } catch (streamError) {
-      console.error('StreamText error:', streamError);
-      throw streamError;
+    // 添加所有启用的参数
+    if (requestOptions.temperature !== undefined) {
+      actualRequestBody.temperature = requestOptions.temperature;
+    }
+    if (requestOptions.topP !== undefined) {
+      actualRequestBody.top_p = requestOptions.topP;
+    }
+    if (requestOptions.maxSteps !== undefined) {
+      actualRequestBody.max_tokens = requestOptions.maxSteps;
+    }
+    if (requestOptions.presencePenalty !== undefined) {
+      actualRequestBody.presence_penalty = requestOptions.presencePenalty;
+    }
+    if (requestOptions.frequencyPenalty !== undefined) {
+      actualRequestBody.frequency_penalty = requestOptions.frequencyPenalty;
+    }
+    if (requestOptions.topK !== undefined) {
+      actualRequestBody.top_k = requestOptions.topK;
+    }
+
+    console.log('[DevMode] Actual request body messages count:', actualRequestBody.messages.length);
+    console.log('[DevMode] First 3 messages:', actualRequestBody.messages.slice(0, 3).map((m: any) => ({
+      role: m.role,
+      contentPreview: m.content.substring(0, 50)
+    })));
+
+    // Base64 编码请求体（用于响应头）
+    const requestBodyJson = JSON.stringify(actualRequestBody);
+    const requestBodyBase64 = Buffer.from(requestBodyJson, 'utf-8').toString('base64');
+
+    try {
+      let response: Response;
+
+      if (useStream) {
+        // 流式输出
+        const result = streamText(requestOptions);
+        response = result.toUIMessageStreamResponse();
+      } else {
+        // 非流式输出 - 但返回流式格式以保持客户端兼容性
+        console.log('Using non-stream mode (generateText)');
+        const result = await generateText(requestOptions);
+
+        console.log('Generate finished:', {
+          textLength: result.text?.length || 0,
+          finishReason: result.finishReason,
+          hasText: !!result.text
+        });
+
+        // 立即保存 AI 的回复
+        if (result.text) {
+          await addMessage(conversationId, {
+            role: 'assistant',
+            content: result.text,
+            model: modelId,
+          });
+        } else {
+          console.error('No text received from AI model');
+        }
+
+        // 创建一个简单的流响应（立即发送完整内容）
+        const encoder = new TextEncoder();
+        const messageId = crypto.randomUUID();
+
+        // 构建 UI 消息格式的数据
+        const uiMessage = {
+          id: messageId,
+          role: 'assistant' as const,
+          parts: [
+            {
+              type: 'text' as const,
+              text: result.text || '',
+            }
+          ],
+        };
+
+        // 创建流
+        const stream = new ReadableStream({
+          start(controller) {
+            // 发送消息数据（AI SDK 期望的格式）
+            const data = `0:${JSON.stringify([uiMessage])}\n`;
+            controller.enqueue(encoder.encode(data));
+
+            // 关闭流
+            controller.close();
+          },
+        });
+
+        response = new Response(stream, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'X-Vercel-AI-Data-Stream': 'v1',
+          },
+        });
+      }
+
+      // 在响应头中添加完整的请求体信息（用于 DevMode 面板）
+      response.headers.set('X-Actual-Request-Body', requestBodyBase64);
+      response.headers.set('X-Prompt-Messages-Count', String(modelMessages.length));
+
+      return response;
+    } catch (error) {
+      console.error('AI Model error:', error);
+      throw error;
     }
   } catch (error) {
     console.error('Chat API Error:', error);

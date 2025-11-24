@@ -13,20 +13,25 @@ import type { PromptBuildContext } from '@/types/prompt';
  */
 export function replacePlaceholders(template: string, context: PromptBuildContext): string {
   let result = template;
-  
-  // 替换 {{user}} - 用户名称
+
+  // 替换 {{user}} - 用户名称（使用激活的用户角色名称或默认值）
   const userName = context.userName || 'User';
-  result = result.replace(/\{\{user\}\}/g, userName);
-  
+  result = result.replace(/\{\{user\}\}/gi, userName);
+
+  // 替换 {{char}} / {{character}} - 角色名称（当前对话角色）
+  const characterName = context.characterName || 'Assistant';
+  result = result.replace(/\{\{char\}\}/gi, characterName);
+  result = result.replace(/\{\{character\}\}/gi, characterName);
+
   // 替换 {{last_user_message}} - 最后一条用户消息
   if (context.lastUserMessage) {
-    result = result.replace(/\{\{last_user_message\}\}/g, context.lastUserMessage);
+    result = result.replace(/\{\{last_user_message\}\}/gi, context.lastUserMessage);
   }
-  
+
   // 替换 {{chat_history}} - 对话窗口内所有上下文
   const chatHistory = formatChatHistory(context.messageHistory);
-  result = result.replace(/\{\{chat_history\}\}/g, chatHistory);
-  
+  result = result.replace(/\{\{chat_history\}\}/gi, chatHistory);
+
   return result;
 }
 

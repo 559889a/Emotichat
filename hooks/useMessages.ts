@@ -96,6 +96,33 @@ export function useMessages({
       });
       console.error('Chat error:', err);
     },
+    onFinish: ({ response }: any) => {
+      // 从响应头中读取服务端构建的实际请求体
+      try {
+        if (response && response.headers) {
+          const actualRequestBodyHeader = response.headers.get('X-Actual-Request-Body');
+          if (actualRequestBodyHeader) {
+            // 从 Base64 解码
+            const requestBodyJson = atob(actualRequestBodyHeader);
+            const actualRequestBody = JSON.parse(requestBodyJson);
+            console.log('[Dev Mode] Actual request body:', {
+              model: actualRequestBody.model,
+              messagesCount: actualRequestBody.messages?.length || 0,
+              parameters: Object.keys(actualRequestBody).filter(k => k !== 'model' && k !== 'messages')
+            });
+            // 触发自定义事件，通知 chat page 更新 devmode 数据
+            window.dispatchEvent(new CustomEvent('actualRequestBody', {
+              detail: {
+                requestBody: actualRequestBody,
+                conversationId
+              }
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse actual request body:', err);
+      }
+    },
   });
 
   // 将 AI SDK 的消息转换为我们的 Message 类型

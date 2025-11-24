@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +31,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { PresetEditor } from '@/components/settings/preset-editor';
-import { builtInPresets } from '@/lib/prompt/presets';
 import type { PromptPreset } from '@/types/prompt';
 import { cn } from '@/lib/utils';
 
@@ -41,7 +42,7 @@ function generateId(): string {
 }
 
 /**
- * 创建新预设模板
+ * 创建新预设模板（带三个内置引用）
  */
 function createNewPreset(): PromptPreset {
   return {
@@ -59,8 +60,41 @@ function createNewPreset(): PromptPreset {
       strategy: 'sliding_window',
       warningThreshold: 0.8,
     },
-    prompts: [],
-    globalPosition: 'before_all',
+    prompts: [
+      {
+        id: 'builtin-character_prompts',
+        order: 0,
+        content: '',
+        enabled: true,
+        role: 'system',
+        referenceType: 'character_prompts',
+        isBuiltInReference: true,
+        name: '角色设定',
+        description: '引用当前对话角色的所有提示词配置',
+      },
+      {
+        id: 'builtin-user_prompts',
+        order: 1,
+        content: '',
+        enabled: true,
+        role: 'system',
+        referenceType: 'user_prompts',
+        isBuiltInReference: true,
+        name: '用户设定',
+        description: '引用当前用户角色的提示词配置',
+      },
+      {
+        id: 'builtin-chat_history',
+        order: 2,
+        content: '',
+        enabled: true,
+        role: 'system',
+        referenceType: 'chat_history',
+        isBuiltInReference: true,
+        name: '聊天记录',
+        description: '引用对话历史消息记录',
+      },
+    ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -77,7 +111,41 @@ export default function PresetsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // 用于跟踪未保存的更改
+  const [originalPreset, setOriginalPreset] = useState<PromptPreset | null>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+
+  // 获取当前选中的预设
+  const selectedPreset = presets.find((p) => p.id === selectedPresetId);
+
+  // 检查是否有未保存的更改
+  const isDirty = React.useMemo(() => {
+    if (!selectedPreset || !originalPreset) return false;
+    return JSON.stringify(selectedPreset) !== JSON.stringify(originalPreset);
+  }, [selectedPreset, originalPreset]);
+
+  // 当选中的预设改变时，更新 originalPreset
+  useEffect(() => {
+    if (selectedPreset) {
+      setOriginalPreset(JSON.parse(JSON.stringify(selectedPreset)));
+    }
+  }, [selectedPresetId]); // 只在 ID 变化时触发
+
+  // 监听浏览器刷新/关闭事件
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '您有未保存的更改，确定要离开吗？';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   // 加载预设
   useEffect(() => {
@@ -89,17 +157,16 @@ export default function PresetsPage() {
       setLoading(true);
       const response = await fetch('/api/presets');
       if (!response.ok) throw new Error('加载预设失败');
-      
+
       const data = await response.json();
-      
-      // 合并内置预设和用户预设
-      const allPresets = [...builtInPresets, ...(data.presets || [])];
-      setPresets(allPresets);
+
+      // 只加载用户创建的预设
+      setPresets(data.presets || []);
       setActivePresetId(data.activePresetId);
-      
+
       // 默认选中第一个预设
-      if (allPresets.length > 0 && !selectedPresetId) {
-        setSelectedPresetId(allPresets[0].id);
+      if (data.presets && data.presets.length > 0 && !selectedPresetId) {
+        setSelectedPresetId(data.presets[0].id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
@@ -116,14 +183,67 @@ export default function PresetsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(preset),
       });
-      
+
       if (!response.ok) throw new Error('保存预设失败');
-      
+
       await loadPresets();
       setEditingPreset(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : '保存失败');
     }
+  };
+
+  // 保存当前选中的预设
+  const handleSaveCurrentPreset = async () => {
+    if (!selectedPreset) return;
+
+    try {
+      const response = await fetch('/api/presets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selectedPreset),
+      });
+
+      if (!response.ok) throw new Error('保存预设失败');
+
+      // 更新 originalPreset 以清除 dirty 状态
+      setOriginalPreset(JSON.parse(JSON.stringify(selectedPreset)));
+
+      alert('保存成功！');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '保存失败');
+    }
+  };
+
+  // 切换预设（带未保存检查）
+  const handlePresetChange = (newPresetId: string) => {
+    if (isDirty) {
+      // 有未保存的更改，显示确认对话框
+      setPendingActionId(newPresetId);
+      setShowUnsavedDialog(true);
+    } else {
+      // 没有未保存的更改，直接切换
+      setSelectedPresetId(newPresetId);
+    }
+  };
+
+  // 确认放弃更改
+  const handleDiscardChanges = () => {
+    if (pendingActionId) {
+      setSelectedPresetId(pendingActionId);
+      setPendingActionId(null);
+    }
+    setShowUnsavedDialog(false);
+  };
+
+  // 保存并切换
+  const handleSaveAndSwitch = async () => {
+    await handleSaveCurrentPreset();
+    if (pendingActionId) {
+      setSelectedPresetId(pendingActionId);
+      setPendingActionId(null);
+    }
+    setShowUnsavedDialog(false);
   };
 
   // 删除预设
@@ -153,12 +273,32 @@ export default function PresetsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ presetId: id }),
       });
-      
+
       if (!response.ok) throw new Error('激活预设失败');
-      
-      setActivePresetId(id);
+
+      // 重新加载所有预设以更新 isActive 状态
+      await loadPresets();
     } catch (err) {
       alert(err instanceof Error ? err.message : '激活失败');
+    }
+  };
+
+  // 创建新预设
+  const handleCreateNewPreset = async () => {
+    try {
+      const newPreset = createNewPreset();
+
+      // 如果是第一个预设，自动激活
+      if (presets.length === 0) {
+        newPreset.isActive = true;
+      }
+
+      await savePreset(newPreset);
+
+      // 自动选中新创建的预设
+      setSelectedPresetId(newPreset.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '创建失败');
     }
   };
 
@@ -168,9 +308,9 @@ export default function PresetsPage() {
       ...preset,
       id: generateId(),
       name: `${preset.name} (副本)`,
+      isActive: false, // 复制的预设不激活
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      isBuiltIn: false,
     };
     setEditingPreset(newPreset);
   };
@@ -206,9 +346,9 @@ export default function PresetsPage() {
         const newPreset: PromptPreset = {
           ...imported,
           id: generateId(),
+          isActive: false, // 导入的预设不激活
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          isBuiltIn: false,
         };
         
         setEditingPreset(newPreset);
@@ -218,14 +358,6 @@ export default function PresetsPage() {
     };
     input.click();
   };
-
-  // 过滤预设
-  const filteredPresets = presets.filter((preset) =>
-    preset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (preset.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
-  );
-
-  const selectedPreset = presets.find((p) => p.id === selectedPresetId);
 
   if (loading) {
     return (
@@ -265,10 +397,85 @@ export default function PresetsPage() {
           管理全局提示词预设，控制模型参数、上下文策略和提示词内容
         </p>
         
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setEditingPreset(createNewPreset())}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Select
+              value={selectedPresetId || ''}
+              onValueChange={handlePresetChange}
+            >
+              <SelectTrigger className="w-[300px]">
+                <SelectValue placeholder="选择预设" />
+              </SelectTrigger>
+              <SelectContent>
+                {presets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{preset.name}</span>
+                      {preset.isActive && (
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedPreset && !selectedPreset.isActive && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => activatePreset(selectedPreset.id)}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                激活
+              </Button>
+            )}
+
+            {selectedPreset && (
+              <>
+                {isDirty && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSaveCurrentPreset}
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    保存
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => duplicatePreset(selectedPreset)}
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  复制
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportPreset(selectedPreset)}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  导出
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteConfirmId(selectedPreset.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  删除
+                </Button>
+              </>
+            )}
+          </div>
+
+          <Separator orientation="vertical" className="h-8" />
+
+          <Button onClick={handleCreateNewPreset}>
             <Plus className="h-4 w-4 mr-2" />
-            新建预设
+            新建空白预设
           </Button>
           <Button variant="outline" onClick={importPreset}>
             <Upload className="h-4 w-4 mr-2" />
@@ -278,142 +485,22 @@ export default function PresetsPage() {
       </div>
 
       {/* 主内容区 */}
-      <div className="grid grid-cols-12 gap-6">
-        {/* 左侧：预设列表 */}
-        <div className="col-span-4">
+      <div>
+        {selectedPreset ? (
+          <PresetEditor
+            preset={selectedPreset}
+            onChange={(updated) => {
+              setPresets(presets.map((p) => (p.id === updated.id ? updated : p)));
+            }}
+            readOnly={false}
+          />
+        ) : (
           <Card>
-            <CardHeader>
-              <CardTitle>预设列表</CardTitle>
-              <Input
-                placeholder="搜索预设..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100vh-300px)]">
-                <div className="p-4 space-y-2">
-                  {filteredPresets.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      没有找到预设
-                    </p>
-                  ) : (
-                    filteredPresets.map((preset) => (
-                      <Card
-                        key={preset.id}
-                        className={cn(
-                          'cursor-pointer transition-colors hover:bg-accent',
-                          selectedPresetId === preset.id && 'ring-2 ring-primary'
-                        )}
-                        onClick={() => setSelectedPresetId(preset.id)}
-                      >
-                        <CardHeader className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-base flex items-center gap-2">
-                                {preset.name}
-                                {activePresetId === preset.id && (
-                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                )}
-                                {preset.isBuiltIn && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    内置
-                                  </Badge>
-                                )}
-                              </CardTitle>
-                              {preset.description && (
-                                <CardDescription className="text-xs mt-1">
-                                  {preset.description}
-                                </CardDescription>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-1 mt-2">
-                            {activePresetId !== preset.id && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  activatePreset(preset.id);
-                                }}
-                              >
-                                <Check className="h-3 w-3 mr-1" />
-                                激活
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingPreset(preset);
-                              }}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                duplicatePreset(preset);
-                              }}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                exportPreset(preset);
-                              }}
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
-                            {!preset.isBuiltIn && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteConfirmId(preset.id);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
-                        </CardHeader>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+            <CardContent className="flex items-center justify-center h-96">
+              <p className="text-muted-foreground">请选择一个预设</p>
             </CardContent>
           </Card>
-        </div>
-
-        {/* 右侧：预设详情/编辑器 */}
-        <div className="col-span-8">
-          {selectedPreset ? (
-            <PresetEditor
-              preset={selectedPreset}
-              onChange={(updated) => {
-                setPresets(presets.map((p) => (p.id === updated.id ? updated : p)));
-              }}
-              readOnly={selectedPreset.isBuiltIn}
-            />
-          ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center h-96">
-                <p className="text-muted-foreground">请选择一个预设</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        )}
       </div>
 
       {/* 编辑对话框 */}
@@ -423,35 +510,29 @@ export default function PresetsPage() {
       >
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingPreset?.isBuiltIn ? '查看预设' : '编辑预设'}
-            </DialogTitle>
+            <DialogTitle>编辑预设</DialogTitle>
             <DialogDescription>
-              {editingPreset?.isBuiltIn
-                ? '内置预设为只读，可以复制后修改'
-                : '配置预设的各项参数和提示词'}
+              配置预设的各项参数和提示词
             </DialogDescription>
           </DialogHeader>
-          
+
           {editingPreset && (
             <PresetEditor
               preset={editingPreset}
               onChange={setEditingPreset}
-              readOnly={editingPreset.isBuiltIn}
+              readOnly={false}
             />
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingPreset(null)}>
               <X className="h-4 w-4 mr-2" />
               取消
             </Button>
-            {editingPreset && !editingPreset.isBuiltIn && (
-              <Button onClick={() => editingPreset && savePreset(editingPreset)}>
-                <Save className="h-4 w-4 mr-2" />
-                保存
-              </Button>
-            )}
+            <Button onClick={() => editingPreset && savePreset(editingPreset)}>
+              <Save className="h-4 w-4 mr-2" />
+              保存
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -481,6 +562,31 @@ export default function PresetsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 未保存更改确认对话框 */}
+      <Dialog
+        open={showUnsavedDialog}
+        onOpenChange={(open) => !open && setShowUnsavedDialog(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>未保存的更改</DialogTitle>
+            <DialogDescription>
+              您有未保存的更改，是否要保存后再切换预设？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDiscardChanges}>
+              放弃更改
+            </Button>
+            <Button variant="default" onClick={handleSaveAndSwitch}>
+              <Save className="h-4 w-4 mr-2" />
+              保存并切换
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
         </div>
       </div>
     </div>

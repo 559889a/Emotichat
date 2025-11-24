@@ -176,33 +176,24 @@ export interface PromptPreset {
   id: string;                 // 预设唯一标识符
   name: string;               // 预设名称
   description?: string;       // 预设描述
-  
+
+  // 输出设置
+  stream?: boolean;           // 是否启用流式输出（默认true）
+
   // 模型参数
   parameters: ModelParameters;
   enabledParameters: string[]; // 已启用的参数列表（打勾选择）
-  
+
   // 上下文限制（本地计数器）
   contextLimit: ContextLimitConfig;
-  
+
   // 提示词序列
   prompts: PromptItem[];
-  
-  // 全局位置
-  globalPosition: 'before_all' | 'after_character' | 'before_user' | 'custom';
-  customOrder?: number;       // 自定义排序（当 globalPosition = 'custom' 时）
-  
-  // Scenario（情景设定）
-  scenario?: string;          // 对话场景设定
-  
-  // Author's Note（作者注释）
-  authorsNote?: string;       // 作者注释，用于引导对话
-  authorsNoteDepth?: number;  // Author's Note 注入深度（默认为3）
-  authorsNotePosition?: InjectionPosition; // 注入位置（默认为'after'）
-  
+
   // 元数据
   createdAt: string;          // ISO 8601 时间戳
   updatedAt: string;          // ISO 8601 时间戳
-  isBuiltIn?: boolean;        // 是否为内置预设（不可删除）
+  isActive?: boolean;         // 是否为激活的预设（全局唯一）
 }
 
 // ============================================================================

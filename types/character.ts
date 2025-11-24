@@ -22,6 +22,7 @@ export interface Character {
 
   // 角色类型标识
   isUserProfile?: boolean;       // 是否为用户角色（true=用户角色，false/undefined=AI对话角色）
+  isActive?: boolean;            // 是否激活（仅用于用户角色，全局最多激活一个）
 
   // 元数据
   createdAt: string;             // ISO 8601 时间戳

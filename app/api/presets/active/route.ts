@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setActivePresetId, getActivePreset } from '@/lib/storage/config';
+import { activatePreset, getActivePreset } from '@/lib/storage/config';
 
 /**
  * POST /api/presets/active
- * 设置活动预设
+ * 激活预设（全局唯一）
  */
 export async function POST(request: NextRequest) {
   try {
     const { presetId } = await request.json();
-    
-    await setActivePresetId(presetId);
-    
+
+    if (!presetId) {
+      return NextResponse.json(
+        { error: 'presetId is required' },
+        { status: 400 }
+      );
+    }
+
+    await activatePreset(presetId);
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error setting active preset:', error);
+    console.error('Error activating preset:', error);
     return NextResponse.json(
-      { error: 'Failed to set active preset' },
+      { error: error instanceof Error ? error.message : 'Failed to activate preset' },
       { status: 500 }
     );
   }
