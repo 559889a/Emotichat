@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import type { DevModeData } from '@/types/dev-mode'
-import { cn } from '@/lib/utils'
+import { cn, maskSensitiveData } from '@/lib/utils'
 
 interface DevModePanelProps {
   /** 是否显示面板 */
@@ -53,7 +53,8 @@ export function DevModePanel({
   }
 
   const exportLog = (log: DevModeData) => {
-    const json = JSON.stringify(log, null, 2)
+    const maskedLog = maskSensitiveData(log)
+    const json = JSON.stringify(maskedLog, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -64,7 +65,7 @@ export function DevModePanel({
   }
 
   return (
-    <div className="hidden lg:flex flex-col h-full border-l bg-background w-full lg:w-1/2">
+    <div className="hidden lg:flex flex-col h-full min-h-0 border-l bg-background w-full lg:w-1/2">
       {/* Header */}
       <div className="flex-shrink-0 border-b px-4 py-3">
         <div className="flex items-center justify-between">
@@ -153,18 +154,72 @@ export function DevModePanel({
                       </div>
                       <div>
                         <span className="text-muted-foreground">Model:</span>
-                        <div className="font-mono">{selectedLog.apiRequest.model.modelId}</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">构建耗时:</span>
-                        <div className="font-mono">{selectedLog.performance.promptBuildDuration}ms</div>
+                        <div className="font-mono text-xs break-all">{selectedLog.apiRequest.model.modelId}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">请求耗时:</span>
                         <div className="font-mono">{selectedLog.performance.requestDuration}ms</div>
                       </div>
+                      <div>
+                        <span className="text-muted-foreground">消息数量:</span>
+                        <div className="font-mono">{selectedLog.apiRequest.messages.length} 条</div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* 消息列表 - 完整显示所有内容 */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold">发送的消息 ({selectedLog.apiRequest.messages.length})</h4>
+                    <div className="space-y-2">
+                      {selectedLog.apiRequest.messages.map((msg, i) => (
+                        <div key={i} className="border rounded-md overflow-hidden">
+                          <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={msg.role === 'system' ? 'default' : msg.role === 'user' ? 'secondary' : 'outline'}>
+                                {msg.role}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">#{i}</span>
+                              {msg.layer !== undefined && (
+                                <span className="text-xs text-muted-foreground">Layer {msg.layer}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {msg.content.length} 字符
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(msg.content)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          {/* 移除 max-h-40 限制，完整显示所有内容 */}
+                          <div className="px-3 py-2 text-xs whitespace-pre-wrap break-words font-mono bg-background/50">
+                            {msg.content}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 模型参数 */}
+                  {selectedLog.apiRequest.model.parameters && Object.keys(selectedLog.apiRequest.model.parameters).length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold">模型参数</h4>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {Object.entries(selectedLog.apiRequest.model.parameters).map(([key, value]) => (
+                          <div key={key}>
+                            <span className="text-muted-foreground">{key}:</span>
+                            <div className="font-mono">{String(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Token 统计 */}
                   <div className="space-y-2">
@@ -188,20 +243,23 @@ export function DevModePanel({
                     </div>
                   </div>
 
-                  {/* 请求体 */}
+                  {/* 完整请求体（JSON格式） */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold">请求体</h4>
+                      <h4 className="text-sm font-semibold">完整请求体（发送给 LLM 的实际内容）</h4>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => copyToClipboard(JSON.stringify(selectedLog.apiRequest.requestBody, null, 2))}
+                        onClick={() => {
+                          const maskedBody = maskSensitiveData(selectedLog.apiRequest.requestBody)
+                          copyToClipboard(JSON.stringify(maskedBody, null, 2))
+                        }}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
-                      {JSON.stringify(selectedLog.apiRequest.requestBody, null, 2)}
+                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto font-mono whitespace-pre">
+                      {JSON.stringify(maskSensitiveData(selectedLog.apiRequest.requestBody), null, 2)}
                     </pre>
                   </div>
 
@@ -242,33 +300,31 @@ export function DevModePanel({
                           )}
                         </div>
                       ) : (
-                        <pre className="text-xs bg-muted p-3 rounded overflow-x-auto max-h-64">
+                        <pre className="text-xs bg-muted p-3 rounded overflow-x-auto font-mono whitespace-pre-wrap break-words">
                           {selectedLog.apiResponse.content}
                         </pre>
                       )}
                     </div>
                   )}
 
-                  {/* 消息列表 */}
+                  {/* 调试信息：完整日志对象 */}
                   <div className="space-y-2">
-                    <h4 className="text-sm font-semibold">消息列表 ({selectedLog.apiRequest.messages.length})</h4>
-                    <div className="space-y-2">
-                      {selectedLog.apiRequest.messages.map((msg, i) => (
-                        <div key={i} className="p-2 bg-muted rounded text-xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <Badge variant={msg.role === 'system' ? 'default' : msg.role === 'user' ? 'secondary' : 'outline'}>
-                              {msg.role}
-                            </Badge>
-                            {msg.layer !== undefined && (
-                              <span className="text-muted-foreground">Layer {msg.layer}</span>
-                            )}
-                          </div>
-                          <div className="line-clamp-3 whitespace-pre-wrap">
-                            {msg.content}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold">完整调试日志（JSON）</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const maskedLog = maskSensitiveData(selectedLog)
+                          copyToClipboard(JSON.stringify(maskedLog, null, 2))
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
                     </div>
+                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto font-mono whitespace-pre">
+                      {JSON.stringify(maskSensitiveData(selectedLog), null, 2)}
+                    </pre>
                   </div>
                 </div>
               </ScrollArea>

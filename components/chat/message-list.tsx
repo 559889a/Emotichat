@@ -56,8 +56,8 @@ export function MessageList({
   }
 
   return (
-    <ScrollArea className="flex-1 min-h-0">
-      <div ref={scrollAreaRef} className="w-full max-w-full px-2 sm:px-3 md:px-4 py-4 sm:py-6 space-y-1">
+    <ScrollArea className="h-full px-2 sm:px-3 md:px-4">
+      <div ref={scrollAreaRef} className="max-w-4xl mx-auto py-4 sm:py-6 space-y-1">
         {messages.map((message, index) => {
           // 第一条消息或 ID 为 'welcome-message' 的消息不显示操作按钮
           const isWelcomeMessage = index === 0 || message.id === 'welcome-message'

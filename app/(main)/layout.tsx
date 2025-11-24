@@ -14,12 +14,12 @@ export default function MainLayout({
       </aside>
 
       {/* 主内容区域 - 移动端占满全宽，桌面端占据剩余空间 */}
-      <div className="flex flex-1 flex-col overflow-hidden w-full md:w-auto">
+      <div className="flex flex-1 flex-col overflow-hidden w-full md:w-auto min-h-0">
         {/* 移动端 Header */}
         <Header />
 
         {/* 页面内容 */}
-        <main className="flex-1 overflow-hidden relative">
+        <main className="flex-1 overflow-hidden relative min-h-0">
           {children}
         </main>
       </div>

@@ -47,3 +47,6 @@ next-env.d.ts
 # 本地日志目录（包含运行日志，不提交到 Git）
 /logs/**
 !/logs/**/.gitkeep
+
+# AI助手临时文件目录（不提交到 Git）
+/.claude/**

@@ -5,6 +5,11 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { addMessage, getConversationById } from '@/lib/storage/conversations';
 import { getProviderById, getCustomProviders } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
+import { maskSensitiveData } from '@/lib/utils';
+import { getCharacterById } from '@/lib/storage/characters';
+import { getActivePreset } from '@/lib/storage/config';
+import { buildPrompt } from '@/lib/prompt/builder';
+import type { Message } from '@/types';
 
 // 全局模型配置类型（来自客户端）
 interface GlobalModelConfig {
@@ -38,8 +43,9 @@ export async function POST(request: Request) {
 
     console.log('=== Chat API Request ===');
     console.log('conversationId:', conversationId);
-    console.log('globalModelConfig:', JSON.stringify(globalModelConfig, null, 2));
+    console.log('globalModelConfig:', JSON.stringify(maskSensitiveData(globalModelConfig), null, 2));
     console.log('clientApiKey:', clientApiKey ? '***provided***' : null);
+    console.log('messages (from client):', messages.length, 'messages');
 
     if (!conversationId) {
       return new Response('Missing conversationId', { status: 400 });
@@ -51,19 +57,45 @@ export async function POST(request: Request) {
       return new Response('Conversation not found', { status: 404 });
     }
 
-    // 转换 UI 消息为模型消息格式
-    const modelMessages = convertToModelMessages(messages);
+    // 获取角色信息
+    const character = await getCharacterById(conversation.characterId);
+    if (!character) {
+      return new Response('Character not found', { status: 404 });
+    }
+
+    // 获取活动预设（可选）
+    const activePreset = await getActivePreset();
+
+    // 转换 UI 消息为我们的 Message 类型
+    const historyMessages: Message[] = messages.map(msg => {
+      let content = '';
+      if (msg.parts && Array.isArray(msg.parts)) {
+        content = msg.parts
+          .filter((p: any) => p.type === 'text')
+          .map((p: any) => p.text)
+          .join('');
+      }
+
+      return {
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content,
+        createdAt: new Date().toISOString(),
+      };
+    });
+
+    console.log('\n=== Building Prompt with Prompt System ===');
+    console.log('Character:', character.name);
+    console.log('Active Preset:', activePreset?.name || 'None');
+    console.log('History Messages:', historyMessages.length);
+    console.log('==========================================\n');
 
     // 获取最后一条用户消息并保存
-    const lastMessage = modelMessages[modelMessages.length - 1];
-    if (lastMessage && lastMessage.role === 'user') {
+    const lastHistoryMessage = historyMessages[historyMessages.length - 1];
+    if (lastHistoryMessage && lastHistoryMessage.role === 'user') {
       await addMessage(conversationId, {
         role: 'user',
-        content: typeof lastMessage.content === 'string'
-          ? lastMessage.content
-          : lastMessage.content.map(part =>
-              part.type === 'text' ? part.text : ''
-            ).join(''),
+        content: lastHistoryMessage.content,
       });
     }
 
@@ -242,6 +274,38 @@ export async function POST(request: Request) {
         return new Response('Unsupported provider', { status: 400 });
     }
 
+    // 使用提示词构建系统构建完整的提示词
+    // 将 AIProviderType 转换为 buildPrompt 需要的格式
+    let providerName: string = providerType;
+    if (providerType === 'google') {
+      providerName = 'gemini';
+    }
+
+    const builtMessages = buildPrompt(
+      character,
+      conversation,
+      historyMessages,
+      providerName,
+      {
+        skipPostProcess: false,
+        userName: 'User', // 可以从配置中获取
+      }
+    );
+
+    console.log('\n=== Built Prompt Messages ===');
+    console.log('Total built messages:', builtMessages.length);
+    builtMessages.forEach((msg, index) => {
+      const preview = msg.content.substring(0, 100);
+      console.log(`[${index}] ${msg.role}: ${preview}${msg.content.length > 100 ? '...' : ''}`);
+    });
+    console.log('==============================\n');
+
+    // 转换为 AI SDK 格式
+    const modelMessages = builtMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
     // 获取模型参数
     const parameters = conversation.modelConfig?.parameters;
 
@@ -289,12 +353,19 @@ export async function POST(request: Request) {
     }
 
     // 调用 AI 模型
-    console.log('Calling streamText with options:', {
-      baseURL: baseUrl,
-      modelId,
-      messagesCount: modelMessages.length,
+    console.log('\n=== Final Request to AI ===');
+    console.log('Model:', modelId);
+    console.log('Provider:', providerType);
+    console.log('Base URL:', baseUrl || 'default');
+    console.log('Messages count:', modelMessages.length);
+    console.log('Parameters:', {
       temperature: streamOptions.temperature,
+      topP: streamOptions.topP,
+      maxSteps: streamOptions.maxSteps,
+      presencePenalty: streamOptions.presencePenalty,
+      frequencyPenalty: streamOptions.frequencyPenalty,
     });
+    console.log('===========================\n');
 
     try {
       const result = streamText(streamOptions);

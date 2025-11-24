@@ -1,37 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Bot, Loader2, AlertCircle } from 'lucide-react';
 import { useCharacters } from '@/hooks/useCharacters';
-import type { Character, CreateCharacterInput, UpdateCharacterInput } from '@/types/character';
+import type { Character } from '@/types/character';
 import { CharacterCard } from '@/components/character/character-card';
-import { CharacterForm } from '@/components/character/character-form';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/layout/error-boundary';
 
 export default function CharactersPage() {
-  const { characters, loading, error, createCharacter, updateCharacter, deleteCharacter } = useCharacters();
-  const [showForm, setShowForm] = useState(false);
-  const [editingCharacter, setEditingCharacter] = useState<Character | undefined>(undefined);
+  const router = useRouter();
+  const { characters, loading, error, deleteCharacter } = useCharacters();
 
   const handleCreateClick = () => {
-    setEditingCharacter(undefined);
-    setShowForm(true);
+    router.push('/characters/new');
   };
 
   const handleEditClick = (character: Character) => {
-    setEditingCharacter(character);
-    setShowForm(true);
-  };
-
-  const handleFormSubmit = async (data: CreateCharacterInput | UpdateCharacterInput) => {
-    if (editingCharacter) {
-      // 编辑模式
-      await updateCharacter(editingCharacter.id, data as UpdateCharacterInput);
-    } else {
-      // 创建模式
-      await createCharacter(data as CreateCharacterInput);
-    }
+    router.push(`/characters/${character.id}/edit`);
   };
 
   const handleDeleteClick = async (character: Character) => {
@@ -117,14 +103,6 @@ export default function CharactersPage() {
           ))}
         </div>
       )}
-
-      {/* 创建/编辑表单对话框 */}
-      <CharacterForm
-        open={showForm}
-        onOpenChange={setShowForm}
-        character={editingCharacter}
-        onSubmit={handleFormSubmit}
-      />
           </div>
         </div>
       </div>
