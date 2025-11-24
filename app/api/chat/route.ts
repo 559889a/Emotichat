@@ -457,7 +457,18 @@ export async function POST(request: Request) {
       if (useStream) {
         // 流式输出
         const result = streamText(requestOptions);
-        response = result.toUIMessageStreamResponse();
+        const streamResponse = result.toUIMessageStreamResponse();
+
+        // 克隆响应并添加自定义响应头（Response 对象是不可变的）
+        response = new Response(streamResponse.body, {
+          status: streamResponse.status,
+          statusText: streamResponse.statusText,
+          headers: new Headers({
+            ...Object.fromEntries(streamResponse.headers.entries()),
+            'X-Actual-Request-Body': requestBodyBase64,
+            'X-Prompt-Messages-Count': String(modelMessages.length),
+          }),
+        });
       } else {
         // 非流式输出 - 但返回流式格式以保持客户端兼容性
         console.log('Using non-stream mode (generateText)');
@@ -496,30 +507,42 @@ export async function POST(request: Request) {
           ],
         };
 
-        // 创建流
+        // 创建流 - 使用AI SDK期望的完整格式
         const stream = new ReadableStream({
           start(controller) {
-            // 发送消息数据（AI SDK 期望的格式）
-            const data = `0:${JSON.stringify([uiMessage])}\n`;
-            controller.enqueue(encoder.encode(data));
+            try {
+              // 发送消息数据
+              const messageData = `0:${JSON.stringify([uiMessage])}\n`;
+              controller.enqueue(encoder.encode(messageData));
 
-            // 关闭流
-            controller.close();
+              // 发送完成标记（finish reason）
+              const finishData = `d:{"finishReason":"stop"}\n`;
+              controller.enqueue(encoder.encode(finishData));
+
+              // 关闭流
+              controller.close();
+            } catch (error) {
+              controller.error(error);
+            }
           },
         });
 
+        // 创建响应，直接包含所有必要的响应头
         response = new Response(stream, {
           status: 200,
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
             'X-Vercel-AI-Data-Stream': 'v1',
+            'X-Actual-Request-Body': requestBodyBase64,
+            'X-Prompt-Messages-Count': String(modelMessages.length),
           },
         });
-      }
 
-      // 在响应头中添加完整的请求体信息（用于 DevMode 面板）
-      response.headers.set('X-Actual-Request-Body', requestBodyBase64);
-      response.headers.set('X-Prompt-Messages-Count', String(modelMessages.length));
+        console.log('[DevMode] Non-stream response created with headers:', {
+          hasActualRequestBody: !!response.headers.get('X-Actual-Request-Body'),
+          messageCount: response.headers.get('X-Prompt-Messages-Count')
+        });
+      }
 
       return response;
     } catch (error) {
