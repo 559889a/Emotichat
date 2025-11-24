@@ -470,117 +470,117 @@ function ChatPageContent() {
   // 显示对话界面
   return (
     <ErrorBoundary>
-      <div className="h-full w-full flex flex-col lg:flex-row overflow-hidden">
+      <div className="h-full w-full flex flex-col lg:flex-row">
         {/* 主聊天区域 - 根据 Dev Mode 和屏幕尺寸调整宽度 */}
-        <div className={`flex flex-col h-full min-h-0 ${devModeSettings.enabled ? 'w-full lg:w-1/2' : 'w-full'} overflow-hidden`}>
-        {/* Header with conversation title and settings */}
-        <div className="flex-shrink-0 border-b bg-background px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3">
-          <div className="flex items-center justify-between w-full max-w-full">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs sm:text-sm flex-shrink-0">
-                {characterAvatar}
+        <div className={`flex flex-col h-full ${devModeSettings.enabled ? 'w-full lg:w-1/2' : 'w-full'}`}>
+          {/* Header with conversation title and settings */}
+          <div className="flex-shrink-0 border-b bg-background px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3">
+            <div className="flex items-center justify-between w-full max-w-full">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs sm:text-sm flex-shrink-0">
+                  {characterAvatar}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-sm truncate">{currentConversation?.title || '新对话'}</h2>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {currentCharacter?.name || '未知角色'}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h2 className="font-semibold text-sm truncate">{currentConversation?.title || '新对话'}</h2>
-                <p className="text-xs text-muted-foreground truncate">
-                  {currentCharacter?.name || '未知角色'}
-                </p>
+
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                {/* Token 使用摘要 */}
+                {messages.length > 0 && (
+                  <TokenUsageSummary
+                    usedTokens={totalTokens}
+                    config={{ model: 'gpt-4', estimateMode: true }}
+                  />
+                )}
+
+                {/* Dev Mode 指示器 */}
+                {devModeSettings.enabled && devModeLogs.length > 0 && (
+                  <Badge variant="secondary" className="gap-1.5">
+                    <Code className="h-3 w-3" />
+                    <span className="hidden sm:inline">{devModeLogs.length}</span>
+                  </Badge>
+                )}
+
+                <ConversationSettingsButton
+                  conversation={fullConversation}
+                  character={currentCharacter}
+                  onSave={handleSaveConversationSettings}
+                />
               </div>
             </div>
-            
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Token 使用摘要 */}
-              {messages.length > 0 && (
-                <TokenUsageSummary
+          </div>
+
+          {/* 消息列表或欢迎屏幕 - 必须包裹在 flex-1 容器中 */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {hasMessages ? (
+              <MessageList
+                messages={messages}
+                characterName={currentCharacter?.name}
+                characterAvatar={characterAvatar}
+                loading={messagesLoading}
+                onRetry={retryMessage}
+                onEdit={editMessage}
+                onDelete={(messageId) => deleteMessage(messageId, false)}
+                onDeleteFollowing={(messageId) => deleteMessage(messageId, true)}
+                onVersionChange={switchVersion}
+              />
+            ) : (
+              !messagesLoading && currentCharacter && (
+                <WelcomeScreen
+                  characterName={currentCharacter.name}
+                  characterAvatar={characterAvatar}
+                  characterDescription={currentCharacter.description}
+                />
+              )
+            )}
+          </div>
+
+          {/* Token 警告 */}
+          {shouldShowTokenWarning && (
+            <div className="flex-shrink-0 px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3 border-t">
+              <div className="w-full max-w-full">
+                <TokenCounter
                   usedTokens={totalTokens}
                   config={{ model: 'gpt-4', estimateMode: true }}
+                  showDetails={false}
+                  showWarning={true}
+                  showCleanupSuggestion={true}
+                  onCleanup={handleCleanupMessages}
+                  compact={false}
                 />
-              )}
-
-              {/* Dev Mode 指示器 */}
-              {devModeSettings.enabled && devModeLogs.length > 0 && (
-                <Badge variant="secondary" className="gap-1.5">
-                  <Code className="h-3 w-3" />
-                  <span className="hidden sm:inline">{devModeLogs.length}</span>
-                </Badge>
-              )}
-              
-              <ConversationSettingsButton
-                conversation={fullConversation}
-                character={currentCharacter}
-                onSave={handleSaveConversationSettings}
-              />
+              </div>
             </div>
-          </div>
-        </div>
-        
-        {/* 消息列表或欢迎屏幕 - 必须包裹在 flex-1 容器中 */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {hasMessages ? (
-            <MessageList
-              messages={messages}
-              characterName={currentCharacter?.name}
-              characterAvatar={characterAvatar}
-              loading={messagesLoading}
-              onRetry={retryMessage}
-              onEdit={editMessage}
-              onDelete={(messageId) => deleteMessage(messageId, false)}
-              onDeleteFollowing={(messageId) => deleteMessage(messageId, true)}
-              onVersionChange={switchVersion}
-            />
-          ) : (
-            !messagesLoading && currentCharacter && (
-              <WelcomeScreen
-                characterName={currentCharacter.name}
-                characterAvatar={characterAvatar}
-                characterDescription={currentCharacter.description}
-              />
-            )
           )}
-        </div>
 
-        {/* Token 警告 */}
-        {shouldShowTokenWarning && (
-          <div className="flex-shrink-0 px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3 border-t">
+          {/* 底部输入框 */}
+          <div className="flex-shrink-0 border-t bg-background p-2 sm:p-3 md:p-4">
             <div className="w-full max-w-full">
-              <TokenCounter
-                usedTokens={totalTokens}
-                config={{ model: 'gpt-4', estimateMode: true }}
-                showDetails={false}
-                showWarning={true}
-                showCleanupSuggestion={true}
-                onCleanup={handleCleanupMessages}
-                compact={false}
+              <ChatInput
+                onSend={async (content) => {
+                  // 如果启用了 Dev Mode，记录请求信息
+                  if (devModeSettings.enabled && conversationId) {
+                    pendingRequestRef.current = {
+                      userContent: content,
+                      messagesBeforeSend: messages,
+                      timestamp: new Date(),
+                      conversationId,
+                    };
+                  }
+
+                  // 发送消息
+                  const result = await sendMessage(content);
+                  return result;
+                }}
+                disabled={messagesLoading}
+                onStop={stop}
+                placeholder={`向 ${currentCharacter?.name || 'AI'} 发送消息...`}
               />
             </div>
           </div>
-        )}
-
-        {/* 底部输入框 */}
-        <div className="flex-shrink-0 border-t bg-background p-2 sm:p-3 md:p-4">
-          <div className="w-full max-w-full">
-            <ChatInput
-              onSend={async (content) => {
-                // 如果启用了 Dev Mode，记录请求信息
-                if (devModeSettings.enabled && conversationId) {
-                  pendingRequestRef.current = {
-                    userContent: content,
-                    messagesBeforeSend: messages,
-                    timestamp: new Date(),
-                    conversationId,
-                  };
-                }
-
-                // 发送消息
-                const result = await sendMessage(content);
-                return result;
-              }}
-              disabled={messagesLoading}
-              onStop={stop}
-              placeholder={`向 ${currentCharacter?.name || 'AI'} 发送消息...`}
-            />
-          </div>
-        </div>
         </div>
 
         {/* Dev Mode 面板 - 占据右侧 50% */}
