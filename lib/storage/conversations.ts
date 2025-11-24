@@ -107,7 +107,7 @@ export async function createConversation(
 ): Promise<Conversation> {
   try {
     await ensureDataDir();
-    
+
     const now = new Date().toISOString();
     const conversation: Conversation = {
       id: crypto.randomUUID(),
@@ -119,21 +119,58 @@ export async function createConversation(
       createdAt: now,
       updatedAt: now,
     };
-    
+
     const filePath = path.join(DATA_DIR, `${conversation.id}.json`);
-    
+
     // 保存对话元数据
     await withFileLock(filePath, async () => {
       await fs.writeFile(filePath, JSON.stringify(conversation, null, 2), 'utf-8');
     });
-    
-    // 创建消息目录和空消息文件
+
+    // 创建消息目录和初始消息列表
     await ensureConversationDir(conversation.id);
     const messagesPath = path.join(DATA_DIR, conversation.id, 'messages.json');
+
+    // 检查角色是否有开场白
+    const character = await getCharacterById(input.characterId);
+    const initialMessages: Message[] = [];
+
+    if (character?.promptConfig?.openingMessage && character.promptConfig.openingMessage.trim()) {
+      // 处理开场白中的变量替换
+      let openingMessage = character.promptConfig.openingMessage;
+
+      // 替换角色名称变量
+      openingMessage = openingMessage.replace(/\{\{char\}\}/gi, character.name);
+      openingMessage = openingMessage.replace(/\{\{character\}\}/gi, character.name);
+
+      // 替换用户名称变量（默认为 "User"）
+      openingMessage = openingMessage.replace(/\{\{user\}\}/gi, 'User');
+
+      // 创建开场白消息（第0层楼 - 角色的第一条消息）
+      const openingMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: openingMessage,
+        createdAt: now,
+      };
+
+      initialMessages.push(openingMsg);
+
+      // 更新消息计数
+      conversation.messageCount = 1;
+      conversation.lastMessageAt = now;
+
+      // 重新保存对话元数据（包含更新的消息计数）
+      await withFileLock(filePath, async () => {
+        await fs.writeFile(filePath, JSON.stringify(conversation, null, 2), 'utf-8');
+      });
+    }
+
+    // 保存初始消息列表
     await withFileLock(messagesPath, async () => {
-      await fs.writeFile(messagesPath, JSON.stringify([], null, 2), 'utf-8');
+      await fs.writeFile(messagesPath, JSON.stringify(initialMessages, null, 2), 'utf-8');
     });
-    
+
     return conversation;
   } catch (error) {
     console.error('Error creating conversation:', error);
