@@ -307,8 +307,36 @@ export async function POST(request: Request) {
       content: msg.content,
     }));
 
-    // 获取模型参数
-    const parameters = conversation.modelConfig?.parameters;
+    // 获取模型参数（优先使用预设参数，然后是对话配置）
+    let parameters = conversation.modelConfig?.parameters;
+
+    // 如果有活动预设且包含启用的参数，使用预设参数
+    if (activePreset && activePreset.parameters) {
+      const presetParams: any = {};
+
+      // 只应用预设中启用的参数
+      if (activePreset.enabledParameters.includes('temperature') && activePreset.parameters.temperature !== undefined) {
+        presetParams.temperature = activePreset.parameters.temperature;
+      }
+      if (activePreset.enabledParameters.includes('topP') && activePreset.parameters.topP !== undefined) {
+        presetParams.topP = activePreset.parameters.topP;
+      }
+      if (activePreset.enabledParameters.includes('topK') && activePreset.parameters.topK !== undefined) {
+        presetParams.topK = activePreset.parameters.topK;
+      }
+      if (activePreset.enabledParameters.includes('maxTokens') && activePreset.parameters.maxTokens !== undefined) {
+        presetParams.maxTokens = activePreset.parameters.maxTokens;
+      }
+      if (activePreset.enabledParameters.includes('presencePenalty') && activePreset.parameters.presencePenalty !== undefined) {
+        presetParams.presencePenalty = activePreset.parameters.presencePenalty;
+      }
+      if (activePreset.enabledParameters.includes('frequencyPenalty') && activePreset.parameters.frequencyPenalty !== undefined) {
+        presetParams.frequencyPenalty = activePreset.parameters.frequencyPenalty;
+      }
+
+      // 合并参数：预设参数覆盖对话配置
+      parameters = { ...parameters, ...presetParams };
+    }
 
     // 构建流式调用参数
     const streamOptions: any = {

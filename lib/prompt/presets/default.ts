@@ -28,8 +28,9 @@ export const defaultPreset: PromptPreset = {
     warningThreshold: 0.8,
   },
   
-  // 提示词序列
+  // 提示词序列（包含引用项）
   prompts: [
+    // 自定义系统提示词
     {
       id: 'default-system-1',
       order: 0,
@@ -38,6 +39,42 @@ export const defaultPreset: PromptPreset = {
       role: 'system',
       name: '系统提示',
       description: '基本的系统提示词',
+    },
+    // 引用：角色设定
+    {
+      id: 'builtin-character_prompts',
+      order: 1,
+      content: '',
+      enabled: true,
+      role: 'system',
+      referenceType: 'character_prompts',
+      isBuiltInReference: true,
+      name: '角色设定',
+      description: '引用当前对话角色的所有提示词配置',
+    },
+    // 引用：用户设定
+    {
+      id: 'builtin-user_prompts',
+      order: 2,
+      content: '',
+      enabled: true,
+      role: 'system',
+      referenceType: 'user_prompts',
+      isBuiltInReference: true,
+      name: '用户设定',
+      description: '引用当前用户角色的提示词配置',
+    },
+    // 引用：聊天记录
+    {
+      id: 'builtin-chat_history',
+      order: 3,
+      content: '',
+      enabled: true,
+      role: 'system',
+      referenceType: 'chat_history',
+      isBuiltInReference: true,
+      name: '聊天记录',
+      description: '引用对话历史消息记录',
     },
   ],
   

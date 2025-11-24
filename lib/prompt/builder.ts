@@ -471,6 +471,7 @@ function separateInjectionItems(items: PromptItem[]): {
 
 /**
  * 构建基础消息数组
+ * 支持聊天记录标记（ref-history-marker）来控制历史消息插入位置
  */
 function buildBaseMessages(
   promptItems: PromptItem[],
@@ -479,35 +480,58 @@ function buildBaseMessages(
   macroStore: Map<string, string>
 ): ProcessedPromptMessage[] {
   const result: ProcessedPromptMessage[] = [];
-  
-  // 1. 添加启用的提示词项（非注入类型）
-  for (const item of promptItems) {
-    if (item.enabled && !item.injection?.enabled) {
-      result.push({
-        role: item.role,
-        content: item.content,
-        layer: undefined,
-      });
-    }
-  }
-  
-  // 2. 添加历史消息
+
+  // 处理历史消息（将在遇到标记时插入）
+  const processedHistoryMessages: ProcessedPromptMessage[] = [];
   for (let i = 0; i < historyMessages.length; i++) {
     const msg = historyMessages[i];
     let content = msg.content;
-    
+
     // 对历史消息也进行处理
     content = replaceVariables(content, context);
     content = replacePlaceholders(content, context);
     content = expandMacros(content, macroStore);
-    
-    result.push({
+
+    processedHistoryMessages.push({
       role: msg.role as PromptRole,
       content,
       layer: i, // 设置楼层编号
     });
   }
-  
+
+  // 检查是否有聊天记录标记
+  const hasHistoryMarker = promptItems.some(
+    item => item.id === 'ref-history-marker' && item.enabled && !item.injection?.enabled
+  );
+
+  // 遍历提示词项
+  for (const item of promptItems) {
+    if (!item.enabled || item.injection?.enabled) continue;
+
+    // 遇到聊天记录标记，插入历史消息
+    if (item.id === 'ref-history-marker') {
+      result.push(...processedHistoryMessages);
+      continue;
+    }
+
+    // 跳过空内容的占位符（如 ref-user-placeholder）
+    if (item.content.trim() === '' && item.id.startsWith('ref-')) {
+      continue;
+    }
+
+    // 添加普通提示词项
+    result.push({
+      role: item.role,
+      content: item.content,
+      layer: undefined,
+    });
+  }
+
+  // 如果没有聊天记录标记，默认将历史消息添加到末尾（向后兼容）
+  if (!hasHistoryMarker) {
+    result.push(...processedHistoryMessages);
+  }
+
   return result;
 }
 
