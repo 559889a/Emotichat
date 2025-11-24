@@ -117,6 +117,7 @@ export async function PUT(
     if (body.defaultModel !== undefined) updateData.defaultModel = body.defaultModel;
     if (body.temperature !== undefined) updateData.temperature = body.temperature;
     if (body.promptConfig !== undefined) updateData.promptConfig = body.promptConfig;
+    if (body.isUserProfile !== undefined) updateData.isUserProfile = body.isUserProfile; // 用户角色标识
     
     const character = await updateCharacter(id, updateData);
     

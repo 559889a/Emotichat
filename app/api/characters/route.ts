@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
       defaultModel: body.defaultModel,
       temperature: body.temperature,
       promptConfig: body.promptConfig,
+      isUserProfile: body.isUserProfile, // 用户角色标识
     };
     
     const character = await createCharacter(characterData);

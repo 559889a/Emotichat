@@ -28,6 +28,8 @@ interface CharacterFormProps {
   onOpenChange: (open: boolean) => void;
   character?: Character; // 如果提供，则为编辑模式
   onSubmit: (data: CreateCharacterInput | UpdateCharacterInput) => Promise<void>;
+  isUserProfile?: boolean; // 是否为用户角色（隐藏开场白）
+  asDialog?: boolean; // 是否作为Dialog显示（默认true）
 }
 
 /**
@@ -106,7 +108,7 @@ function migrateOldCharacterToPromptConfig(character: Character): CharacterPromp
   return config;
 }
 
-export function CharacterForm({ open, onOpenChange, character, onSubmit }: CharacterFormProps) {
+export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserProfile = false, asDialog = true }: CharacterFormProps) {
   const isEditMode = !!character;
   
   // 基本信息状态
@@ -241,23 +243,28 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit }: Chara
 
     setIsSubmitting(true);
     try {
+      // 如果是用户角色，清空开场白数据
+      const finalPromptConfig = isUserProfile
+        ? { ...promptConfig, openingMessage: '' }
+        : promptConfig;
+
       // 构建提交数据
       const submitData: CreateCharacterInput | UpdateCharacterInput = {
         name: formData.name,
         description: formData.description,
         avatar: formData.avatar || undefined,
         personality,
-        
+
         // 为了向后兼容，同时保存旧字段（从 promptConfig 提取）
-        systemPrompt: promptConfig.prompts.find(p => p.enabled && p.role === 'system')?.content || '',
+        systemPrompt: finalPromptConfig.prompts.find(p => p.enabled && p.role === 'system')?.content || '',
         background: undefined, // 不再使用独立的 background 字段
-        exampleDialogues: promptConfig.exampleDialogues?.filter(e => e.enabled).map(e => 
+        exampleDialogues: finalPromptConfig.exampleDialogues?.filter(e => e.enabled).map(e =>
           `User: ${e.user}\nAssistant: ${e.assistant}`
         ),
-        
+
         // 新的提示词配置
-        promptConfig,
-        
+        promptConfig: finalPromptConfig,
+
         // 高级配置
         memoryEnabled: advancedConfig.memoryEnabled,
         temperature: advancedConfig.temperature,
@@ -273,17 +280,9 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit }: Chara
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-2">
-          <DialogTitle>{isEditMode ? '编辑角色' : '创建角色'}</DialogTitle>
-          <DialogDescription>
-            {isEditMode ? '修改角色的设定和配置' : '创建一个新的 AI 角色'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+  // 表单内容
+  const formContent = (
+    <form onSubmit={handleSubmit} className={asDialog ? "flex flex-col flex-1 min-h-0" : ""}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-6">
               <TabsList className="grid w-full grid-cols-3">
@@ -402,6 +401,7 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit }: Chara
                   value={promptConfig}
                   onChange={setPromptConfig}
                   characterName={formData.name || '角色'}
+                  hideOpeningMessage={isUserProfile}
                 />
               </TabsContent>
 
@@ -458,21 +458,47 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit }: Chara
             </ScrollArea>
           </Tabs>
 
-          <DialogFooter className="px-6 py-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              取消
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? '提交中...' : (isEditMode ? '保存' : '创建')}
-            </Button>
-          </DialogFooter>
+          {asDialog ? (
+            <DialogFooter className="px-6 py-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                取消
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? '提交中...' : (isEditMode ? '保存' : '创建')}
+              </Button>
+            </DialogFooter>
+          ) : (
+            <div className="flex justify-end gap-2 pt-6">
+              <Button type="submit" disabled={isSubmitting} size="lg">
+                {isSubmitting ? '提交中...' : (isEditMode ? '保存' : '创建')}
+              </Button>
+            </div>
+          )}
         </form>
-      </DialogContent>
-    </Dialog>
   );
+
+  // 根据 asDialog 决定是否使用 Dialog 包裹
+  if (asDialog) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>{isEditMode ? '编辑角色' : '创建角色'}</DialogTitle>
+            <DialogDescription>
+              {isEditMode ? '修改角色的设定和配置' : '创建一个新的 AI 角色'}
+            </DialogDescription>
+          </DialogHeader>
+          {formContent}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // 非 Dialog 模式，直接返回表单内容
+  return formContent;
 }

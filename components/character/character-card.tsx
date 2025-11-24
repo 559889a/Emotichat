@@ -44,12 +44,17 @@ export const CharacterCard = memo(function CharacterCard({ character, onEdit, on
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
-    
+
+    // 用户角色不能开始对话
+    if ((character as any).isUserProfile) {
+      return;
+    }
+
     // 防止重复点击
     if (isCreatingConversation) {
       return;
     }
-    
+
     // 创建新对话
     setIsCreatingConversation(true);
     try {
@@ -57,7 +62,7 @@ export const CharacterCard = memo(function CharacterCard({ character, onEdit, on
         characterId: character.id,
         title: `与${character.name}的对话`,
       });
-      
+
       if (conversation) {
         // 设置为当前对话
         setCurrentConversation(conversation.id);
@@ -92,75 +97,78 @@ export const CharacterCard = memo(function CharacterCard({ character, onEdit, on
     <>
       <div
         onClick={handleCardClick}
-        className="group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden active:scale-[0.98]"
+        className="group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden active:scale-[0.99]"
       >
-        {/* 卡片内容 */}
-        <div className="p-4 pb-14 sm:p-5 sm:pb-15 md:p-6 md:pb-6">
-          {/* 顶部：头像和操作按钮 */}
-          <div className="flex items-start justify-between mb-3 sm:mb-4">
-            <Avatar className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12">
-              <AvatarFallback className="text-base sm:text-lg font-semibold bg-primary/10 text-primary">
-                {getInitials(character.name)}
-              </AvatarFallback>
-            </Avatar>
-            
-            {/* 操作按钮 - 悬停时显示 */}
-            <div className="flex gap-0.5 sm:gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8"
-                onClick={handleEdit}
-              >
-                <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8 text-destructive hover:text-destructive"
-                onClick={handleDeleteClick}
-              >
-                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </Button>
-            </div>
+        {/* 卡片内容 - 横向布局 */}
+        <div className="flex items-center gap-4 p-4">
+          {/* 左侧：头像 */}
+          <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0">
+            <AvatarFallback className="text-lg sm:text-xl font-semibold bg-primary/10 text-primary">
+              {getInitials(character.name)}
+            </AvatarFallback>
+          </Avatar>
+
+          {/* 中间：信息区域 */}
+          <div className="flex-1 min-w-0">
+            {/* 角色名称 */}
+            <h3 className="text-base sm:text-lg font-semibold mb-1 line-clamp-1">
+              {character.name}
+            </h3>
+
+            {/* 角色描述 */}
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1 mb-2">
+              {character.description}
+            </p>
+
+            {/* 性格标签 */}
+            {character.personality && character.personality.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {character.personality.slice(0, 3).map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+                {character.personality.length > 3 && (
+                  <Badge variant="outline" className="text-xs">
+                    +{character.personality.length - 3}
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* 角色名称 */}
-          <h3 className="text-base sm:text-lg font-semibold mb-2 line-clamp-1">
-            {character.name}
-          </h3>
-
-          {/* 角色描述 */}
-          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2 min-h-[2.5rem]">
-            {character.description}
-          </p>
-
-          {/* 性格标签 - 桌面端悬停时上移 */}
-          {character.personality && character.personality.length > 0 && (
-            <div className="flex flex-wrap gap-2 transition-transform duration-200 md:group-hover:-translate-y-14">
-              {character.personality.slice(0, 3).map((tag, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-              {character.personality.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{character.personality.length - 3}
-                </Badge>
-              )}
-            </div>
-          )}
-
-        {/* 底部"开始对话"按钮区域 */}
-        {/* 移动端：固定显示在底部 */}
-        {/* 桌面端：悬停时显示 */}
-        <div className="absolute inset-x-0 bottom-0 h-11 sm:h-12 bg-primary/5 flex items-center justify-center md:h-0 md:bg-transparent md:group-hover:h-12 md:group-hover:bg-primary/5 transition-all duration-200">
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-primary md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span>{isCreatingConversation ? '创建中...' : '开始对话'}</span>
+          {/* 右侧：操作按钮 */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleEdit}
+              title="编辑"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleDeleteClick}
+              title="删除"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        </div>
+
+        {/* 悬停时显示"开始对话"提示（仅对话角色） */}
+        {!(character as any).isUserProfile && (
+          <div className="absolute inset-x-0 bottom-0 h-0 bg-primary/5 flex items-center justify-center group-hover:h-10 transition-all duration-200">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>{isCreatingConversation ? '创建中...' : '开始对话'}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 删除确认对话框 */}

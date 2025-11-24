@@ -51,6 +51,8 @@ interface PromptConfigProps {
   readOnly?: boolean;
   /** 额外的类名 */
   className?: string;
+  /** 是否隐藏开场白（用于用户角色） */
+  hideOpeningMessage?: boolean;
 }
 
 /**
@@ -99,6 +101,7 @@ export function PromptConfig({
   characterName = '角色',
   readOnly = false,
   className,
+  hideOpeningMessage = false,
 }: PromptConfigProps) {
   // 折叠状态
   const [openSections, setOpenSections] = useState({
@@ -145,52 +148,54 @@ export function PromptConfig({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {/* 开场白编辑 */}
-      <Collapsible open={openSections.opening} onOpenChange={() => toggleSection('opening')}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  <div>
-                    <CardTitle className="text-base">开场白</CardTitle>
-                    <CardDescription className="text-xs">
-                      角色的第一条消息（第0层楼）
-                    </CardDescription>
+      {/* 开场白编辑（用户角色时隐藏） */}
+      {!hideOpeningMessage && (
+        <Collapsible open={openSections.opening} onOpenChange={() => toggleSection('opening')}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    <div>
+                      <CardTitle className="text-base">开场白</CardTitle>
+                      <CardDescription className="text-xs">
+                        角色的第一条消息（第0层楼）
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {value.openingMessage && (
+                      <span className="text-xs text-muted-foreground">
+                        {value.openingMessage.length} 字符
+                      </span>
+                    )}
+                    {openSections.opening ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {value.openingMessage && (
-                    <span className="text-xs text-muted-foreground">
-                      {value.openingMessage.length} 字符
-                    </span>
-                  )}
-                  {openSections.opening ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="pt-0">
-              <Textarea
-                value={value.openingMessage}
-                onChange={(e) => handleOpeningMessageChange(e.target.value)}
-                placeholder={`${characterName}走进房间，带着温暖的微笑看向你...`}
-                className="min-h-[120px] resize-y"
-                disabled={readOnly}
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                提示：开场白支持使用 {'{{user}}'} 代表用户名称，{'{{char}}'} 代表角色名称
-              </p>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <Textarea
+                  value={value.openingMessage}
+                  onChange={(e) => handleOpeningMessageChange(e.target.value)}
+                  placeholder={`${characterName}走进房间，带着温暖的微笑看向你...`}
+                  className="min-h-[120px] resize-y"
+                  disabled={readOnly}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  提示：开场白支持使用 {'{{user}}'} 代表用户名称，{'{{char}}'} 代表角色名称
+                </p>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* System Prompt 编辑 */}
       <Collapsible open={openSections.systemPrompt} onOpenChange={() => toggleSection('systemPrompt')}>

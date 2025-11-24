@@ -5,23 +5,26 @@ export interface Character {
   name: string;                  // 角色名称
   avatar?: string;               // 头像 URL（可选，默认使用首字母）
   description: string;           // 简短描述
-  
-  // 角色设定
-  systemPrompt: string;          // 系统提示词
+
+  // 角色设定（向后兼容字段）
+  systemPrompt?: string;         // 系统提示词（已废弃，使用 promptConfig 代替）
   personality: string[];         // 性格特征标签，如 ["温柔", "善解人意", "幽默"]
-  background?: string;           // 背景故事（可选）
-  exampleDialogues?: string[];   // 示例对话（可选）
-  
+  background?: string;           // 背景故事（可选，已废弃）
+  exampleDialogues?: string[];   // 示例对话（可选，已废弃）
+
   // 配置
   defaultModel?: string;         // 默认使用的模型 ID
   temperature?: number;          // 默认温度 (0-2)
-  
+
   // 记忆
   memoryEnabled: boolean;        // 是否启用记忆功能
-  
+
   // 提示词配置（新提示词系统）
   promptConfig?: CharacterPromptConfig; // 角色级提示词配置（可选）
-  
+
+  // 角色类型标识
+  isUserProfile?: boolean;       // 是否为用户角色（true=用户角色，false/undefined=AI对话角色）
+
   // 元数据
   createdAt: string;             // ISO 8601 时间戳
   updatedAt: string;             // ISO 8601 时间戳
