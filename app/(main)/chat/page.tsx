@@ -208,8 +208,13 @@ function ChatPageContent() {
         injection?: { enabled: boolean };
       }> = [];
 
-      // 1. 添加角色的系统提示词（旧版本兼容）
-      if (currentCharacter?.systemPrompt) {
+      // 1. 添加角色提示词配置
+      // 如果有新版 promptConfig，优先使用；否则使用旧版 systemPrompt
+      if (currentCharacter?.promptConfig?.prompts && currentCharacter.promptConfig.prompts.length > 0) {
+        // 新版配置方式
+        allPromptItems.push(...currentCharacter.promptConfig.prompts as any[]);
+      } else if (currentCharacter?.systemPrompt) {
+        // 旧版兼容
         allPromptItems.push({
           id: `system-${currentCharacter.id}`,
           order: 0,
@@ -217,11 +222,6 @@ function ChatPageContent() {
           role: 'system',
           enabled: true,
         });
-      }
-
-      // 2. 添加角色 promptConfig 中的提示词
-      if (currentCharacter?.promptConfig?.prompts) {
-        allPromptItems.push(...currentCharacter.promptConfig.prompts as any[]);
       }
 
       // 3. 添加对话级 promptConfig 中的提示词

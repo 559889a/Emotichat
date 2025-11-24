@@ -55,22 +55,23 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (!body.systemPrompt || typeof body.systemPrompt !== 'string' || body.systemPrompt.trim() === '') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '系统提示词不能为空',
-        },
-        { status: 400 }
-      );
-    }
-    
     // 验证 personality 数组
     if (!Array.isArray(body.personality)) {
       return NextResponse.json(
         {
           success: false,
           error: '性格特征必须是数组',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 验证 promptConfig
+    if (!body.promptConfig || typeof body.promptConfig !== 'object') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '提示词配置不能为空',
         },
         { status: 400 }
       );
@@ -105,14 +106,12 @@ export async function POST(request: NextRequest) {
     const characterData: CreateCharacterInput = {
       name: body.name.trim(),
       description: body.description.trim(),
-      systemPrompt: body.systemPrompt.trim(),
       personality: body.personality,
       memoryEnabled: body.memoryEnabled,
       avatar: body.avatar,
-      background: body.background,
-      exampleDialogues: body.exampleDialogues,
       defaultModel: body.defaultModel,
       temperature: body.temperature,
+      promptConfig: body.promptConfig,
     };
     
     const character = await createCharacter(characterData);

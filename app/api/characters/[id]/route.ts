@@ -72,17 +72,7 @@ export async function PUT(
         { status: 400 }
       );
     }
-    
-    if (body.systemPrompt !== undefined && (typeof body.systemPrompt !== 'string' || body.systemPrompt.trim() === '')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '系统提示词不能为空',
-        },
-        { status: 400 }
-      );
-    }
-    
+
     if (body.personality !== undefined && !Array.isArray(body.personality)) {
       return NextResponse.json(
         {
@@ -118,17 +108,15 @@ export async function PUT(
     
     // 构建更新数据
     const updateData: UpdateCharacterInput = {};
-    
+
     if (body.name !== undefined) updateData.name = body.name.trim();
     if (body.description !== undefined) updateData.description = body.description.trim();
-    if (body.systemPrompt !== undefined) updateData.systemPrompt = body.systemPrompt.trim();
     if (body.personality !== undefined) updateData.personality = body.personality;
     if (body.memoryEnabled !== undefined) updateData.memoryEnabled = body.memoryEnabled;
     if (body.avatar !== undefined) updateData.avatar = body.avatar;
-    if (body.background !== undefined) updateData.background = body.background;
-    if (body.exampleDialogues !== undefined) updateData.exampleDialogues = body.exampleDialogues;
     if (body.defaultModel !== undefined) updateData.defaultModel = body.defaultModel;
     if (body.temperature !== undefined) updateData.temperature = body.temperature;
+    if (body.promptConfig !== undefined) updateData.promptConfig = body.promptConfig;
     
     const character = await updateCharacter(id, updateData);
     

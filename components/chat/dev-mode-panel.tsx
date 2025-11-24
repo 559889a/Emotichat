@@ -167,45 +167,6 @@ export function DevModePanel({
                     </div>
                   </div>
 
-                  {/* 消息列表 - 完整显示所有内容 */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold">发送的消息 ({selectedLog.apiRequest.messages.length})</h4>
-                    <div className="space-y-2">
-                      {selectedLog.apiRequest.messages.map((msg, i) => (
-                        <div key={i} className="border rounded-md overflow-hidden">
-                          <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
-                            <div className="flex items-center gap-2">
-                              <Badge variant={msg.role === 'system' ? 'default' : msg.role === 'user' ? 'secondary' : 'outline'}>
-                                {msg.role}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">#{i}</span>
-                              {msg.layer !== undefined && (
-                                <span className="text-xs text-muted-foreground">Layer {msg.layer}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
-                                {msg.content.length} 字符
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => copyToClipboard(msg.content)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                          {/* 移除 max-h-40 限制，完整显示所有内容 */}
-                          <div className="px-3 py-2 text-xs whitespace-pre-wrap break-words font-mono bg-background/50">
-                            {msg.content}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* 模型参数 */}
                   {selectedLog.apiRequest.model.parameters && Object.keys(selectedLog.apiRequest.model.parameters).length > 0 && (
                     <div className="space-y-2">
@@ -246,7 +207,7 @@ export function DevModePanel({
                   {/* 完整请求体（JSON格式） */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold">完整请求体（发送给 LLM 的实际内容）</h4>
+                      <h4 className="text-sm font-semibold">完整请求体</h4>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -258,74 +219,35 @@ export function DevModePanel({
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto font-mono whitespace-pre">
+                    <p className="text-xs text-muted-foreground">
+                      注：变量（如 {`{{char}}`}）在后端处理，此处显示原始内容
+                    </p>
+                    <pre className="text-xs bg-muted p-3 rounded font-mono whitespace-pre-wrap break-words overflow-auto">
                       {JSON.stringify(maskSensitiveData(selectedLog.apiRequest.requestBody), null, 2)}
                     </pre>
                   </div>
 
-                  {/* 响应 */}
-                  {selectedLog.apiResponse && (
+                  {/* 错误信息（仅在出错时显示） */}
+                  {selectedLog.apiResponse?.error && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">
-                          {selectedLog.apiResponse.error ? '错误信息' : '响应'}
-                        </h4>
-                        {!selectedLog.apiResponse.error && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const content = selectedLog.apiResponse?.content || ''
-                              copyToClipboard(content)
-                            }}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                      <h4 className="text-sm font-semibold">错误信息</h4>
+                      <div className="p-3 bg-destructive/10 border border-destructive rounded text-xs">
+                        <div className="font-semibold text-destructive mb-1">
+                          {selectedLog.apiResponse.error.message}
+                        </div>
+                        {selectedLog.apiResponse.error.code && (
+                          <div className="text-destructive/80">
+                            错误代码: {selectedLog.apiResponse.error.code}
+                          </div>
+                        )}
+                        {selectedLog.apiResponse.error.statusCode && (
+                          <div className="text-destructive/80">
+                            HTTP: {selectedLog.apiResponse.error.statusCode}
+                          </div>
                         )}
                       </div>
-                      {selectedLog.apiResponse.error ? (
-                        <div className="p-3 bg-destructive/10 border border-destructive rounded text-xs">
-                          <div className="font-semibold text-destructive mb-1">
-                            {selectedLog.apiResponse.error.message}
-                          </div>
-                          {selectedLog.apiResponse.error.code && (
-                            <div className="text-destructive/80">
-                              错误代码: {selectedLog.apiResponse.error.code}
-                            </div>
-                          )}
-                          {selectedLog.apiResponse.error.statusCode && (
-                            <div className="text-destructive/80">
-                              HTTP: {selectedLog.apiResponse.error.statusCode}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <pre className="text-xs bg-muted p-3 rounded overflow-x-auto font-mono whitespace-pre-wrap break-words">
-                          {selectedLog.apiResponse.content}
-                        </pre>
-                      )}
                     </div>
                   )}
-
-                  {/* 调试信息：完整日志对象 */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold">完整调试日志（JSON）</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const maskedLog = maskSensitiveData(selectedLog)
-                          copyToClipboard(JSON.stringify(maskedLog, null, 2))
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto font-mono whitespace-pre">
-                      {JSON.stringify(maskSensitiveData(selectedLog), null, 2)}
-                    </pre>
-                  </div>
                 </div>
               </ScrollArea>
             )}

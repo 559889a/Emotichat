@@ -13,15 +13,11 @@ export default function CharactersPage() {
   const { characters, loading, error, deleteCharacter } = useCharacters();
 
   const handleCreateClick = () => {
-    // 暂时禁用创建页面
-    // router.push('/characters/new');
-    alert('角色创建功能暂时禁用，请通过文件系统创建');
+    router.push('/characters/new');
   };
 
   const handleEditClick = (character: Character) => {
-    // 暂时禁用编辑页面
-    // router.push(`/characters/${character.id}/edit`);
-    alert('角色编辑功能暂时禁用，请通过文件系统编辑');
+    router.push(`/characters/${character.id}/edit`);
   };
 
   const handleDeleteClick = async (character: Character) => {

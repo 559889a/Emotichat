@@ -106,12 +106,7 @@ export default function NewCharacterPage() {
         avatar: formData.avatar || undefined,
         personality,
 
-        // 为了向后兼容，同时保存旧字段（从 promptConfig 提取）
-        systemPrompt: promptConfig.prompts.find(p => p.enabled && p.role === 'system')?.content || '',
-        background: undefined,
-        exampleDialogues: [],
-
-        // 新的提示词配置
+        // 使用统一的提示词配置系统
         promptConfig,
 
         // 默认值
