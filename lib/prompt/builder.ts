@@ -286,6 +286,8 @@ function expandReferenceItem(
   activeUserProfile?: Character
 ): PromptItem[] {
   const items: PromptItem[] = [];
+  // 使用引用项配置的 role，如果未配置则默认为 'system'
+  const targetRole = refItem.role || 'system';
 
   switch (refItem.referenceType) {
     case 'character_prompts':
@@ -293,12 +295,14 @@ function expandReferenceItem(
       const charHasNewConfig = character.promptConfig?.prompts && character.promptConfig.prompts.length > 0;
       console.log('[expandReferenceItem] character_prompts - has systemPrompt:', !!character.systemPrompt);
       console.log('[expandReferenceItem] character_prompts - has promptConfig.prompts:', charHasNewConfig, character.promptConfig?.prompts?.length || 0);
+      console.log('[expandReferenceItem] character_prompts - using role:', targetRole);
 
       if (charHasNewConfig) {
         // 优先使用新版配置，并只添加启用的提示词项
         const enabledPrompts = character.promptConfig!.prompts.filter(p => p.enabled);
         console.log('[expandReferenceItem] character_prompts - using new config, enabled prompts:', enabledPrompts.length);
-        items.push(...enabledPrompts.map(p => ({ ...p, order: refItem.order })));
+        // 使用引用项配置的 role 覆盖原本的 role
+        items.push(...enabledPrompts.map(p => ({ ...p, order: refItem.order, role: targetRole })));
       } else if (character.systemPrompt) {
         // 回退到旧版 systemPrompt
         console.log('[expandReferenceItem] character_prompts - falling back to legacy systemPrompt');
@@ -307,7 +311,7 @@ function expandReferenceItem(
           order: refItem.order,
           content: character.systemPrompt,
           enabled: true,
-          role: 'system',
+          role: targetRole,
           name: '角色系统提示词',
         });
       }
@@ -316,6 +320,7 @@ function expandReferenceItem(
     case 'user_prompts':
       // 引用：用户设定 - 使用激活的用户角色
       console.log('[expandReferenceItem] user_prompts - has activeUserProfile:', !!activeUserProfile);
+      console.log('[expandReferenceItem] user_prompts - using role:', targetRole);
       if (activeUserProfile) {
         const userHasNewConfig = activeUserProfile.promptConfig?.prompts && activeUserProfile.promptConfig.prompts.length > 0;
         console.log('[expandReferenceItem] user_prompts - has systemPrompt:', !!activeUserProfile.systemPrompt);
@@ -325,7 +330,8 @@ function expandReferenceItem(
           // 优先使用新版配置，并只添加启用的提示词项
           const enabledPrompts = activeUserProfile.promptConfig!.prompts.filter(p => p.enabled);
           console.log('[expandReferenceItem] user_prompts - using new config, enabled prompts:', enabledPrompts.length);
-          items.push(...enabledPrompts.map(p => ({ ...p, order: refItem.order })));
+          // 使用引用项配置的 role 覆盖原本的 role
+          items.push(...enabledPrompts.map(p => ({ ...p, order: refItem.order, role: targetRole })));
         } else if (activeUserProfile.systemPrompt) {
           // 回退到旧版 systemPrompt
           console.log('[expandReferenceItem] user_prompts - falling back to legacy systemPrompt');
@@ -334,7 +340,7 @@ function expandReferenceItem(
             order: refItem.order,
             content: activeUserProfile.systemPrompt,
             enabled: true,
-            role: 'system',
+            role: targetRole,
             name: '用户角色系统提示词',
           });
         }
@@ -346,13 +352,14 @@ function expandReferenceItem(
       // 引用：聊天记录 - 不需要在这里处理
       // 历史消息会在 buildBaseMessages 中添加
       // 这里添加一个标记项，用于控制历史消息的插入位置
+      // 注意：chat_history 的 role 不影响实际历史消息的 role
       console.log('[expandReferenceItem] chat_history - adding marker');
       items.push({
         id: `ref-history-marker`,
         order: refItem.order,
         content: '', // 特殊标记
         enabled: true,
-        role: 'system',
+        role: targetRole, // 标记项的 role（不影响实际历史消息）
         name: '聊天记录标记',
         description: '历史消息将插入此位置',
       });

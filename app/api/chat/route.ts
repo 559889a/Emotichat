@@ -2,7 +2,7 @@ import { streamText, generateText, convertToModelMessages, type UIMessage } from
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { addMessage, getConversationById } from '@/lib/storage/conversations';
+import { addMessage, getConversationById, getMessages } from '@/lib/storage/conversations';
 import { getProviderById, getCustomProviders } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
 import { maskSensitiveData } from '@/lib/utils';
@@ -94,13 +94,26 @@ export async function POST(request: Request) {
     console.log('History Messages:', historyMessages.length);
     console.log('==========================================\n');
 
-    // 获取最后一条用户消息并保存
+    // 获取最后一条用户消息并保存（检查是否重复，避免重试时添加重复消息）
     const lastHistoryMessage = historyMessages[historyMessages.length - 1];
     if (lastHistoryMessage && lastHistoryMessage.role === 'user') {
-      await addMessage(conversationId, {
-        role: 'user',
-        content: lastHistoryMessage.content,
-      });
+      // 获取对话中现有的消息
+      const existingMessages = await getMessages(conversationId);
+      const lastExistingMessage = existingMessages[existingMessages.length - 1];
+
+      // 检查最后一条消息是否已经是相同的用户消息（重试场景）
+      const isDuplicate = lastExistingMessage &&
+        lastExistingMessage.role === 'user' &&
+        lastExistingMessage.content === lastHistoryMessage.content;
+
+      if (!isDuplicate) {
+        await addMessage(conversationId, {
+          role: 'user',
+          content: lastHistoryMessage.content,
+        });
+      } else {
+        console.log('[Chat API] Skipping duplicate user message (retry scenario)');
+      }
     }
 
     // 确定使用的模型
@@ -201,25 +214,29 @@ export async function POST(request: Request) {
     let model;
     switch (providerType) {
       case 'openai':
-        // OpenAI 协议：直接在原 URL 后添加 /v1，SDK 会再添加 /chat/completions
-        // 最终路径：baseUrl + /v1 + /chat/completions
-        let openaiBaseUrl = baseUrl || '';
-        // 移除末尾斜杠
-        openaiBaseUrl = openaiBaseUrl.replace(/\/+$/, '');
-        // 直接添加 /v1
-        openaiBaseUrl = `${openaiBaseUrl}/v1`;
+        // OpenAI 协议
+        // 自定义端点：直接在原 URL 后添加 /v1，SDK 会再添加 /chat/completions
+        // 官方 API：不设置 baseURL，让 SDK 使用默认值
+        let openaiBaseUrl: string | undefined;
+        if (baseUrl) {
+          // 自定义端点：处理 baseUrl
+          openaiBaseUrl = baseUrl.replace(/\/+$/, '');
+          openaiBaseUrl = `${openaiBaseUrl}/v1`;
+        }
 
         console.log('OpenAI config:', {
           originalBaseURL: baseUrl,
-          finalBaseURL: openaiBaseUrl,
+          finalBaseURL: openaiBaseUrl || '(SDK default)',
           modelId,
           hasApiKey: !!apiKey,
-          note: 'SDK will append /chat/completions to make: ' + openaiBaseUrl + '/chat/completions'
+          note: openaiBaseUrl
+            ? 'SDK will append /chat/completions to make: ' + openaiBaseUrl + '/chat/completions'
+            : 'Using official OpenAI API'
         });
 
         const openai = createOpenAI({
           apiKey,
-          baseURL: openaiBaseUrl,
+          ...(openaiBaseUrl && { baseURL: openaiBaseUrl }),
         });
 
         // 使用 .chat() 方法明确指定使用 chat completions API
@@ -227,49 +244,57 @@ export async function POST(request: Request) {
         break;
 
       case 'google':
-        // Gemini 协议：直接在原 URL 后添加 /v1beta
-        // 最终路径：baseUrl + /v1beta + (SDK 自动添加的端点)
-        let geminiBaseUrl = baseUrl || '';
-        // 移除末尾斜杠
-        geminiBaseUrl = geminiBaseUrl.replace(/\/+$/, '');
-        // 直接添加 /v1beta
-        geminiBaseUrl = `${geminiBaseUrl}/v1beta`;
+        // Gemini 协议
+        // 自定义端点：直接在原 URL 后添加 /v1beta
+        // 官方 API：不设置 baseURL，让 SDK 使用默认值
+        let geminiBaseUrl: string | undefined;
+        if (baseUrl) {
+          // 自定义端点：处理 baseUrl
+          geminiBaseUrl = baseUrl.replace(/\/+$/, '');
+          geminiBaseUrl = `${geminiBaseUrl}/v1beta`;
+        }
 
         console.log('Gemini config:', {
           originalBaseURL: baseUrl,
-          finalBaseURL: geminiBaseUrl,
+          finalBaseURL: geminiBaseUrl || '(SDK default)',
           modelId,
           hasApiKey: !!apiKey,
-          note: 'Final request URL: ' + geminiBaseUrl + '/...'
+          note: geminiBaseUrl
+            ? 'Final request URL: ' + geminiBaseUrl + '/...'
+            : 'Using official Google Gemini API'
         });
 
         const google = createGoogleGenerativeAI({
           apiKey,
-          baseURL: geminiBaseUrl,
+          ...(geminiBaseUrl && { baseURL: geminiBaseUrl }),
         });
         model = google(modelId);
         break;
 
       case 'anthropic':
-        // Anthropic 协议：直接在原 URL 后添加 /v1，SDK 会再添加 /messages
-        // 最终路径：baseUrl + /v1 + /messages
-        let anthropicBaseUrl = baseUrl || '';
-        // 移除末尾斜杠
-        anthropicBaseUrl = anthropicBaseUrl.replace(/\/+$/, '');
-        // 直接添加 /v1
-        anthropicBaseUrl = `${anthropicBaseUrl}/v1`;
+        // Anthropic 协议
+        // 自定义端点：直接在原 URL 后添加 /v1，SDK 会再添加 /messages
+        // 官方 API：不设置 baseURL，让 SDK 使用默认值
+        let anthropicBaseUrl: string | undefined;
+        if (baseUrl) {
+          // 自定义端点：处理 baseUrl
+          anthropicBaseUrl = baseUrl.replace(/\/+$/, '');
+          anthropicBaseUrl = `${anthropicBaseUrl}/v1`;
+        }
 
         console.log('Anthropic config:', {
           originalBaseURL: baseUrl,
-          finalBaseURL: anthropicBaseUrl,
+          finalBaseURL: anthropicBaseUrl || '(SDK default)',
           modelId,
           hasApiKey: !!apiKey,
-          note: 'SDK will append /messages to make: ' + anthropicBaseUrl + '/messages'
+          note: anthropicBaseUrl
+            ? 'SDK will append /messages to make: ' + anthropicBaseUrl + '/messages'
+            : 'Using official Anthropic API'
         });
 
         const anthropic = createAnthropic({
           apiKey,
-          baseURL: anthropicBaseUrl,
+          ...(anthropicBaseUrl && { baseURL: anthropicBaseUrl }),
         });
         model = anthropic(modelId);
         break;

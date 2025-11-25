@@ -6,12 +6,21 @@
  */
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
-import { Check, Server, Globe } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useMemo } from 'react';
+import { Server, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
+} from '@/components/ui/select';
 import {
   OPENAI_PROVIDER,
   GOOGLE_PROVIDER,
@@ -19,7 +28,9 @@ import {
   getCustomProviders,
   type ModelProvider,
   type CustomProvider,
+  type AIProviderType,
 } from '@/lib/ai/models';
+import { getStoredSelectedModel, getStoredApiKey } from './api-keys';
 
 // 全局模型配置类型
 export interface GlobalModelConfig {
@@ -73,6 +84,9 @@ export function GlobalEndpointSelector() {
   const [activeConfig, setActiveConfig] = useState<GlobalModelConfig | null>(null);
   const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
 
+  // 官方提供商列表（常量，放在最前面）
+  const officialProviders = useMemo(() => [OPENAI_PROVIDER, GOOGLE_PROVIDER, ANTHROPIC_PROVIDER], []);
+
   // 加载自定义端点列表
   const loadCustomProviders = React.useCallback(() => {
     setCustomProviders(getCustomProviders());
@@ -83,6 +97,9 @@ export function GlobalEndpointSelector() {
     setActiveConfig(getGlobalModelConfig());
     loadCustomProviders();
   }, [loadCustomProviders]);
+
+  // 强制刷新计数器（用于触发重新渲染）
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // 监听自定义端点变化
   useEffect(() => {
@@ -102,22 +119,60 @@ export function GlobalEndpointSelector() {
       }
     };
 
+    // 监听官方提供商配置变化
+    const handleOfficialConfigChange = () => {
+      // 强制重新渲染以获取最新的用户选择模型
+      setRefreshKey(prev => prev + 1);
+
+      // 直接从 localStorage 读取当前配置（避免闭包中的 activeConfig 过期）
+      const currentConfig = getGlobalModelConfig();
+
+      // 如果当前选中的是官方端点，更新配置中的模型
+      if (currentConfig && !currentConfig.isCustom) {
+        const provider = officialProviders.find(p => p.id === currentConfig.providerId);
+        if (provider) {
+          const newModelId = getStoredSelectedModel(provider.id as AIProviderType) || provider.models[0]?.id;
+          if (newModelId && newModelId !== currentConfig.modelId) {
+            const updatedConfig: GlobalModelConfig = {
+              ...currentConfig,
+              modelId: newModelId,
+            };
+            setGlobalModelConfig(updatedConfig);
+            setActiveConfig(updatedConfig);
+          }
+        }
+      }
+    };
+
     // 监听自定义事件
     window.addEventListener('customProvidersChanged', handleCustomProvidersChange);
+    window.addEventListener('officialProviderConfigChanged', handleOfficialConfigChange);
 
     return () => {
       window.removeEventListener('customProvidersChanged', handleCustomProvidersChange);
+      window.removeEventListener('officialProviderConfigChanged', handleOfficialConfigChange);
     };
-  }, [loadCustomProviders, activeConfig]);
+  }, [loadCustomProviders, activeConfig, officialProviders]);
+
+  // 获取官方提供商用户选择的模型（如果有）
+  const getOfficialProviderModel = (provider: ModelProvider): string => {
+    const providerType = provider.id as AIProviderType;
+    const selectedModel = getStoredSelectedModel(providerType);
+    if (selectedModel) {
+      return selectedModel;
+    }
+    // 如果没有选择，使用硬编码列表的第一个
+    return provider.models[0]?.id || '';
+  };
 
   // 选择官方端点
   const handleSelectOfficial = (provider: ModelProvider) => {
-    const defaultModel = provider.models[0];
-    if (!defaultModel) return;
+    const modelId = getOfficialProviderModel(provider);
+    if (!modelId) return;
 
     const config: GlobalModelConfig = {
       providerId: provider.id,
-      modelId: defaultModel.id,
+      modelId,
       providerType: provider.type,
       isCustom: false,
     };
@@ -153,18 +208,42 @@ export function GlobalEndpointSelector() {
     setActiveConfig(config);
   };
 
-  // 检查是否为激活的官方端点
-  const isActiveOfficial = (providerId: string) => {
-    return activeConfig && !activeConfig.isCustom && activeConfig.providerId === providerId;
-  };
+  // 获取当前选中的值（用于下拉列表）
+  const currentValue = useMemo(() => {
+    if (!activeConfig) return '';
+    if (activeConfig.isCustom && activeConfig.customProviderId) {
+      return `custom:${activeConfig.customProviderId}`;
+    }
+    return `official:${activeConfig.providerId}`;
+  }, [activeConfig]);
 
-  // 检查是否为激活的自定义端点
-  const isActiveCustom = (customId: string) => {
-    return activeConfig && activeConfig.isCustom && activeConfig.customProviderId === customId;
-  };
+  // 获取当前选中的显示名称
+  const currentDisplayName = useMemo(() => {
+    if (!activeConfig) return '未选择';
+    if (activeConfig.isCustom && activeConfig.customProviderId) {
+      const provider = customProviders.find(p => p.id === activeConfig.customProviderId);
+      return provider?.name || '自定义端点';
+    }
+    const provider = officialProviders.find(p => p.id === activeConfig.providerId);
+    return provider?.name || '官方端点';
+  }, [activeConfig, customProviders, officialProviders]);
 
-  // 官方提供商列表
-  const officialProviders = [OPENAI_PROVIDER, GOOGLE_PROVIDER, ANTHROPIC_PROVIDER];
+  // 处理选择变化
+  const handleSelectChange = (value: string) => {
+    if (value.startsWith('official:')) {
+      const providerId = value.replace('official:', '');
+      const provider = officialProviders.find(p => p.id === providerId);
+      if (provider) {
+        handleSelectOfficial(provider);
+      }
+    } else if (value.startsWith('custom:')) {
+      const customId = value.replace('custom:', '');
+      const provider = customProviders.find(p => p.id === customId);
+      if (provider) {
+        handleSelectCustom(provider);
+      }
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -176,113 +255,85 @@ export function GlobalEndpointSelector() {
         </AlertDescription>
       </Alert>
 
-      {/* 官方端点 */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">官方端点</h3>
-        <div className="grid gap-3">
-          {officialProviders.map((provider) => {
-            const isActive = isActiveOfficial(provider.id);
-            const defaultModel = provider.models[0];
-
-            return (
-              <Card
-                key={provider.id}
-                className={cn(
-                  'cursor-pointer transition-all hover:border-primary/50',
-                  isActive && 'border-primary bg-primary/5'
-                )}
-                onClick={() => handleSelectOfficial(provider)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Server className="h-4 w-4" />
-                        {provider.name}
-                      </CardTitle>
-                      {defaultModel && (
-                        <CardDescription className="text-xs">
-                          默认模型: {defaultModel.name}
-                        </CardDescription>
-                      )}
-                    </div>
-                    {isActive && (
-                      <Check className="h-5 w-5 text-primary flex-shrink-0" />
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {provider.type === 'openai' && 'OpenAI'}
-                      {provider.type === 'google' && 'Google'}
-                      {provider.type === 'anthropic' && 'Anthropic'}
-                    </Badge>
-                    {defaultModel && (
-                      <span className="text-xs text-muted-foreground">
-                        {defaultModel.contextWindow.toLocaleString()} tokens
+      {/* 下拉选择器 */}
+      <div className="space-y-2">
+        <Label htmlFor="endpoint-selector">激活端点</Label>
+        <Select value={currentValue} onValueChange={handleSelectChange}>
+          <SelectTrigger id="endpoint-selector" className="w-full">
+            <div className="flex items-center gap-2">
+              <Server className="h-4 w-4" />
+              <SelectValue placeholder="选择一个端点">{currentDisplayName}</SelectValue>
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            {/* 官方端点组 */}
+            <SelectGroup>
+              <SelectLabel>官方端点</SelectLabel>
+              {officialProviders.map((provider) => {
+                const userSelectedModel = getOfficialProviderModel(provider);
+                const hasApiKey = !!getStoredApiKey(provider.id as AIProviderType);
+                return (
+                  <SelectItem key={provider.id} value={`official:${provider.id}`}>
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <span>{provider.name}</span>
+                      <span className={`text-xs font-mono ${hasApiKey ? 'text-muted-foreground' : 'text-destructive'}`}>
+                        {hasApiKey ? userSelectedModel : '未配置 Key'}
                       </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+
+            {/* 自定义端点组 */}
+            {customProviders.length > 0 && (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>自定义端点</SelectLabel>
+                  {customProviders.map((provider) => {
+                    const modelId = provider.models[0];
+                    return (
+                      <SelectItem key={provider.id} value={`custom:${provider.id}`}>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span>{provider.name}</span>
+                          {modelId && (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {modelId}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectGroup>
+              </>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* 自定义端点 */}
-      {customProviders.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium">自定义端点</h3>
-          <div className="grid gap-3">
-            {customProviders.map((provider) => {
-              const isActive = isActiveCustom(provider.id);
-              const modelId = provider.models[0];
-
-              return (
-                <Card
-                  key={provider.id}
-                  className={cn(
-                    'cursor-pointer transition-all hover:border-primary/50',
-                    isActive && 'border-primary bg-primary/5'
-                  )}
-                  onClick={() => handleSelectCustom(provider)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1 flex-1">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Server className="h-4 w-4" />
-                          {provider.name}
-                        </CardTitle>
-                        <CardDescription className="text-xs break-all">
-                          {provider.baseUrl}
-                        </CardDescription>
-                      </div>
-                      {isActive && (
-                        <Check className="h-5 w-5 text-primary flex-shrink-0" />
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs">
-                        {provider.protocol === 'openai' && 'OpenAI 兼容'}
-                        {provider.protocol === 'gemini' && 'Gemini 兼容'}
-                        {provider.protocol === 'anthropic' && 'Claude 兼容'}
-                      </Badge>
-                      {modelId && (
-                        <span className="text-xs text-muted-foreground font-mono">
-                          模型: {modelId}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+      {/* 当前配置信息 */}
+      {activeConfig && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="text-xs">
+            {activeConfig.isCustom ? (
+              <>
+                {activeConfig.customEndpoint?.protocol === 'openai' && 'OpenAI 兼容'}
+                {activeConfig.customEndpoint?.protocol === 'gemini' && 'Gemini 兼容'}
+                {activeConfig.customEndpoint?.protocol === 'anthropic' && 'Claude 兼容'}
+              </>
+            ) : (
+              <>
+                {activeConfig.providerType === 'openai' && 'OpenAI'}
+                {activeConfig.providerType === 'google' && 'Google'}
+                {activeConfig.providerType === 'anthropic' && 'Anthropic'}
+              </>
+            )}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            模型: {activeConfig.modelId}
+          </span>
         </div>
       )}
 

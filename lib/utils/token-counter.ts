@@ -1,10 +1,44 @@
 /**
  * Token 计数器工具
  * 支持多种 LLM 模型的 token 计数和限制管理
+ *
+ * 支持的模型分词器估算：
+ * - GPT/OpenAI: tiktoken (cl100k_base)
+ * - Claude: 类似 GPT 的估算
+ * - Gemini: Google 分词器估算
+ * - DeepSeek: 中文优化分词器
+ * - Qwen (通义千问): 中文优化分词器
+ * - GLM (智谱): 中文优化分词器
+ * - Kimi (月之暗面): 中文优化分词器
+ * - Grok: 类似 GPT 的估算
  */
 
 import { Tiktoken, encodingForModel } from 'js-tiktoken';
 import type { Message } from '@/types';
+
+/**
+ * 模型分词器类型
+ */
+export type TokenizerType = 'openai' | 'claude' | 'gemini' | 'chinese_optimized' | 'grok';
+
+/**
+ * 模型关键字到分词器类型的映射
+ */
+const MODEL_TOKENIZER_MAP: Record<string, TokenizerType> = {
+  // OpenAI 系列
+  'gpt': 'openai',
+  // Anthropic 系列
+  'claude': 'claude',
+  // Google 系列
+  'gemini': 'gemini',
+  // 中文优化模型
+  'deepseek': 'chinese_optimized',
+  'qwen': 'chinese_optimized',
+  'glm': 'chinese_optimized',
+  'kimi': 'chinese_optimized',
+  // X.AI
+  'grok': 'grok',
+};
 
 // 模型 Token 限制配置
 export const MODEL_TOKEN_LIMITS: Record<string, number> = {
@@ -121,17 +155,128 @@ export function countTokensExact(text: string, model: string = 'gpt-4'): number 
  */
 export function countTokensEstimate(text: string): number {
   if (!text) return 0;
-  
+
   // 分别计算中文和非中文字符
   const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
   const otherChars = text.replace(/[\u4e00-\u9fa5]/g, '');
-  
+
   // 中文字符：1.5 个字符 ≈ 1 token
   // 其他字符：4 个字符 ≈ 1 token
   const chineseTokens = Math.ceil(chineseChars.length / 1.5);
   const otherTokens = Math.ceil(otherChars.length / 4);
-  
+
   return chineseTokens + otherTokens;
+}
+
+/**
+ * 检测模型名称中的分词器类型
+ * 忽略大小写匹配关键字
+ */
+export function detectTokenizerType(modelName: string): TokenizerType {
+  if (!modelName) return 'openai';
+
+  const lowerName = modelName.toLowerCase();
+
+  // 按优先级检测关键字
+  for (const [keyword, tokenizerType] of Object.entries(MODEL_TOKENIZER_MAP)) {
+    if (lowerName.includes(keyword)) {
+      return tokenizerType;
+    }
+  }
+
+  // 默认使用 OpenAI 分词器
+  return 'openai';
+}
+
+/**
+ * 根据分词器类型估算 token 数量
+ *
+ * 各分词器的估算规则（基于实际分词器特性）：
+ * - openai: 英文约 4 字符/token，中文约 1.5 字符/token
+ * - claude: 与 OpenAI 类似，略有差异（英文 4，中文 1.4）
+ * - gemini: Google 的 SentencePiece 分词器（英文 4.5，中文 1.8）
+ * - chinese_optimized: 中文优化模型（英文 4，中文 0.7-0.9）
+ * - grok: 与 OpenAI 类似
+ */
+export function countTokensByTokenizer(text: string, tokenizer: TokenizerType): number {
+  if (!text) return 0;
+
+  // 分别计算中文和非中文字符
+  const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+  const otherChars = text.replace(/[\u4e00-\u9fa5]/g, '');
+
+  let chineseRatio: number;
+  let otherRatio: number;
+
+  switch (tokenizer) {
+    case 'openai':
+    case 'grok':
+      // OpenAI/Grok: cl100k_base 编码
+      // 中文约 1.5 字符/token，英文约 4 字符/token
+      chineseRatio = 1.5;
+      otherRatio = 4;
+      break;
+
+    case 'claude':
+      // Claude: 使用自定义分词器，与 OpenAI 类似但对某些符号处理不同
+      // 中文约 1.4 字符/token，英文约 4 字符/token
+      chineseRatio = 1.4;
+      otherRatio = 4;
+      break;
+
+    case 'gemini':
+      // Gemini: 使用 SentencePiece 分词器
+      // 中文约 1.8 字符/token，英文约 4.5 字符/token
+      chineseRatio = 1.8;
+      otherRatio = 4.5;
+      break;
+
+    case 'chinese_optimized':
+      // 中文优化模型（DeepSeek、Qwen、GLM、Kimi）
+      // 这些模型对中文做了特殊优化，中文约 0.8 字符/token
+      // 英文处理与 OpenAI 类似
+      chineseRatio = 0.8;
+      otherRatio = 4;
+      break;
+
+    default:
+      // 默认使用 OpenAI 的估算
+      chineseRatio = 1.5;
+      otherRatio = 4;
+  }
+
+  const chineseTokens = Math.ceil(chineseChars.length / chineseRatio);
+  const otherTokens = Math.ceil(otherChars.length / otherRatio);
+
+  return chineseTokens + otherTokens;
+}
+
+/**
+ * 根据全局模型配置估算 token 数量
+ * 这是推荐使用的主函数，会自动检测模型类型并使用对应分词器
+ */
+export function countTokensForModel(text: string, modelName?: string): number {
+  if (!text) return 0;
+
+  // 如果没有指定模型，尝试从全局配置获取
+  let model = modelName;
+  if (!model && typeof window !== 'undefined') {
+    try {
+      const globalConfig = localStorage.getItem('globalModelConfig');
+      if (globalConfig) {
+        const config = JSON.parse(globalConfig);
+        model = config.modelId;
+      }
+    } catch (error) {
+      // 忽略解析错误
+    }
+  }
+
+  // 检测分词器类型
+  const tokenizerType = detectTokenizerType(model || '');
+
+  // 使用对应分词器估算
+  return countTokensByTokenizer(text, tokenizerType);
 }
 
 /**
@@ -157,26 +302,28 @@ export function countTokens(
 
 /**
  * 计算消息数组的总 token 数
+ * 使用 countTokensForModel 自动检测模型类型并使用对应的分词器估算
  */
 export function countMessagesTokens(
   messages: Message[],
   config: TokenCountConfig = {}
 ): number {
   if (!messages || messages.length === 0) return 0;
-  
+
   let totalTokens = 0;
-  
+
   for (const message of messages) {
-    // 计算消息内容的 token
-    const contentTokens = countTokens(message.content, config);
-    
+    // 使用 countTokensForModel 自动检测模型类型
+    // 如果 config 指定了 model，使用指定的；否则自动从全局配置获取
+    const contentTokens = countTokensForModel(message.content, config.model);
+
     // 添加消息格式的开销（大约 4 个 token per message）
     // 包括 role、content 等字段的格式化开销
     const formatOverhead = 4;
-    
+
     totalTokens += contentTokens + formatOverhead;
   }
-  
+
   return totalTokens;
 }
 

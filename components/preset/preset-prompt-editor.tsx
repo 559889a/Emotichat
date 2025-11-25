@@ -9,6 +9,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Plus,
   GripVertical,
   ChevronUp,
@@ -20,7 +27,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { PromptItemEditor } from '@/components/prompt/prompt-item-editor';
-import type { PromptItem, PromptReferenceType } from '@/types/prompt';
+import type { PromptItem, PromptReferenceType, PromptRole } from '@/types/prompt';
 import { cn } from '@/lib/utils';
 
 /**
@@ -246,6 +253,18 @@ export function PresetPromptEditor({
     [value, onChange]
   );
 
+  // 更新引用项的 role
+  const handleUpdateReferenceRole = useCallback(
+    (id: string, role: PromptRole) => {
+      onChange(
+        value.map((item) =>
+          item.id === id ? { ...item, role } : item
+        )
+      );
+    },
+    [value, onChange]
+  );
+
   // 拖拽开始
   const handleDragStart = useCallback((index: number) => {
     setDraggedIndex(index);
@@ -323,6 +342,7 @@ export function PresetPromptEditor({
                   onMoveUp={() => handleMoveUp(index)}
                   onMoveDown={() => handleMoveDown(index)}
                   onToggleEnabled={() => handleToggleEnabled(item.id)}
+                  onRoleChange={(role) => handleUpdateReferenceRole(item.id, role)}
                   onDragStart={() => handleDragStart(index)}
                   onDragEnd={handleDragEnd}
                   isDragging={draggedIndex === index}
@@ -369,6 +389,7 @@ interface ReferenceItemCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onToggleEnabled: () => void;
+  onRoleChange: (role: PromptRole) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   isDragging?: boolean;
@@ -381,6 +402,7 @@ function ReferenceItemCard({
   onMoveUp,
   onMoveDown,
   onToggleEnabled,
+  onRoleChange,
   onDragStart,
   onDragEnd,
   isDragging = false,
@@ -430,6 +452,23 @@ function ReferenceItemCard({
 
           {/* 操作按钮区 */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Role 选择器 */}
+            <Select
+              value={item.role}
+              onValueChange={(value) => onRoleChange(value as PromptRole)}
+            >
+              <SelectTrigger className="w-[100px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="system">System</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="assistant">Assistant</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Separator orientation="vertical" className="h-6" />
+
             {/* 启用/禁用开关 */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PresetPromptEditor } from '@/components/preset/preset-prompt-editor';
-import { Settings, Sliders, FileText } from 'lucide-react';
+import { Settings, Sliders, FileText, Lock, Unlock, Hash } from 'lucide-react';
+import { countTokensForModel } from '@/lib/utils/token-counter';
 import type { PromptPreset, ModelParameters, ContextLimitConfig } from '@/types/prompt';
 
 /**
@@ -41,7 +42,7 @@ interface ParameterConfig {
 }
 
 /**
- * 支持的模型参数配置
+ * 支持的模型参数配置（不含 maxTokens，已移至上下文限制区域）
  */
 const PARAMETER_CONFIGS: ParameterConfig[] = [
   {
@@ -70,15 +71,6 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
     max: 100,
     step: 1,
     defaultValue: 40,
-  },
-  {
-    key: 'maxTokens',
-    label: 'Max Tokens（最大输出）',
-    description: '单次回复的最大 token 数量',
-    min: 100,
-    max: 8192,
-    step: 100,
-    defaultValue: 2048,
   },
   {
     key: 'presencePenalty',
@@ -110,6 +102,15 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
  */
 export function PresetEditor({ preset, onChange, readOnly = false }: PresetEditorProps) {
   const [activeTab, setActiveTab] = useState('basic');
+  const [parametersLocked, setParametersLocked] = useState(true); // 防误触开关，默认锁定
+
+  // 计算预设提示词的总 token 数
+  const presetTokenCount = useMemo(() => {
+    // 将所有启用的提示词内容合并计算
+    const enabledPrompts = preset.prompts.filter(p => p.enabled);
+    const totalText = enabledPrompts.map(p => p.content).join('\n');
+    return countTokensForModel(totalText);
+  }, [preset.prompts]);
 
   // 更新预设字段
   const updatePreset = <K extends keyof PromptPreset>(
@@ -200,12 +201,62 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                   className="min-h-[100px]"
                 />
               </div>
+
+              <Separator className="my-4" />
+
+              {/* 预设 Token 计数器 */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">预设 Token 统计</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-mono font-semibold text-primary">
+                    {presetTokenCount.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">tokens（估算）</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                统计所有已启用提示词的 Token 数量，帮助您控制预设大小
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* 模型参数 */}
         <TabsContent value="parameters" className="space-y-4">
+          {/* 防误触开关 */}
+          <Card className={parametersLocked ? 'border-amber-500/50' : 'border-green-500/50'}>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {parametersLocked ? (
+                    <Lock className="h-5 w-5 text-amber-500" />
+                  ) : (
+                    <Unlock className="h-5 w-5 text-green-500" />
+                  )}
+                  <div className="space-y-0.5">
+                    <Label htmlFor="parametersLock" className="text-base font-medium">
+                      参数保护锁
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {parametersLocked
+                        ? '参数已锁定，防止误触修改。关闭锁定后可编辑参数。'
+                        : '参数已解锁，您可以修改以下所有参数。'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="parametersLock"
+                  checked={!parametersLocked}
+                  onCheckedChange={(checked) => setParametersLocked(!checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>输出设置</CardTitle>
@@ -225,7 +276,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                   id="stream"
                   checked={preset.stream !== false} // 默认 true
                   onCheckedChange={(checked) => updatePreset('stream', checked)}
-                  disabled={readOnly}
+                  disabled={readOnly || parametersLocked}
                 />
               </div>
             </CardContent>
@@ -235,34 +286,99 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
           <Card>
             <CardHeader>
               <CardTitle>上下文限制</CardTitle>
-              <CardDescription>配置上下文管理策略（本地计数器）</CardDescription>
+              <CardDescription>配置上下文和输出的 Token 限制</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="maxTokens">最大上下文 Tokens</Label>
-                <Input
-                  id="maxTokens"
-                  type="number"
-                  min={1024}
-                  max={128000}
-                  step={512}
-                  value={preset.contextLimit.maxTokens}
-                  onChange={(e) =>
-                    updateContextLimit('maxTokens', parseInt(e.target.value) || 4096)
-                  }
-                  disabled={readOnly}
-                />
-                <p className="text-xs text-muted-foreground">
-                  超过此限制将触发上下文管理策略
-                </p>
+            <CardContent className="space-y-6">
+              {/* 独立容器：Token 限制设置 */}
+              <div className="p-4 rounded-lg border bg-muted/30 space-y-4">
+                <h4 className="font-medium text-sm">Token 限制设置</h4>
+
+                {/* 最大上下文 Tokens - 条状滑块 + 数字输入 */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="contextMaxTokens">最大上下文 Tokens</Label>
+                    <Input
+                      id="contextMaxTokensInput"
+                      type="number"
+                      min={1024}
+                      max={128000}
+                      step={512}
+                      value={preset.contextLimit.maxTokens}
+                      onChange={(e) =>
+                        updateContextLimit('maxTokens', parseInt(e.target.value) || 4096)
+                      }
+                      disabled={readOnly || parametersLocked}
+                      className="w-28 h-8 text-right font-mono"
+                    />
+                  </div>
+                  <Slider
+                    id="contextMaxTokens"
+                    min={1024}
+                    max={128000}
+                    step={512}
+                    value={[preset.contextLimit.maxTokens]}
+                    onValueChange={([value]) => updateContextLimit('maxTokens', value)}
+                    disabled={readOnly || parametersLocked}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    超过此限制将触发上下文管理策略
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Max Tokens (最大输出) - 条状滑块 + 数字输入 */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="maxTokens">Max Tokens（最大输出）</Label>
+                      <Switch
+                        checked={preset.enabledParameters.includes('maxTokens')}
+                        onCheckedChange={(checked) => toggleParameter('maxTokens', checked)}
+                        disabled={readOnly || parametersLocked}
+                        className="h-5 w-9"
+                      />
+                    </div>
+                    <Input
+                      id="maxTokensInput"
+                      type="number"
+                      min={1}
+                      max={64000}
+                      step={100}
+                      value={preset.parameters.maxTokens ?? 2048}
+                      onChange={(e) =>
+                        updateParameter('maxTokens', parseInt(e.target.value) || 2048)
+                      }
+                      disabled={readOnly || parametersLocked || !preset.enabledParameters.includes('maxTokens')}
+                      className="w-28 h-8 text-right font-mono"
+                    />
+                  </div>
+                  <Slider
+                    id="maxTokens"
+                    min={1}
+                    max={64000}
+                    step={100}
+                    value={[preset.parameters.maxTokens ?? 2048]}
+                    onValueChange={([value]) => updateParameter('maxTokens', value)}
+                    disabled={readOnly || parametersLocked || !preset.enabledParameters.includes('maxTokens')}
+                    className={!preset.enabledParameters.includes('maxTokens') ? 'opacity-50' : ''}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    单次回复的最大 token 数量
+                    {!preset.enabledParameters.includes('maxTokens') && (
+                      <span className="text-amber-500 ml-2">（未启用，不会发送给 API）</span>
+                    )}
+                  </p>
+                </div>
               </div>
 
+              {/* 处理策略 */}
               <div className="space-y-2">
                 <Label htmlFor="strategy">处理策略</Label>
                 <Select
                   value={preset.contextLimit.strategy}
                   onValueChange={(value: any) => updateContextLimit('strategy', value)}
-                  disabled={readOnly}
+                  disabled={readOnly || parametersLocked}
                 >
                   <SelectTrigger id="strategy">
                     <SelectValue />
@@ -275,8 +391,12 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                 </Select>
               </div>
 
+              {/* 警告阈值 */}
               <div className="space-y-2">
-                <Label htmlFor="warningThreshold">警告阈值（{Math.round((preset.contextLimit.warningThreshold || 0.8) * 100)}%）</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="warningThreshold">警告阈值</Label>
+                  <span className="text-sm font-mono">{Math.round((preset.contextLimit.warningThreshold || 0.8) * 100)}%</span>
+                </div>
                 <Slider
                   id="warningThreshold"
                   min={0.5}
@@ -284,7 +404,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                   step={0.05}
                   value={[preset.contextLimit.warningThreshold || 0.8]}
                   onValueChange={([value]) => updateContextLimit('warningThreshold', value)}
-                  disabled={readOnly}
+                  disabled={readOnly || parametersLocked}
                 />
                 <p className="text-xs text-muted-foreground">
                   达到此比例时显示警告提示
@@ -293,7 +413,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={parametersLocked ? 'opacity-75' : ''}>
             <CardHeader>
               <CardTitle>模型参数配置</CardTitle>
               <CardDescription>
@@ -321,7 +441,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                         <Switch
                           checked={isEnabled}
                           onCheckedChange={(checked) => toggleParameter(config.key, checked)}
-                          disabled={readOnly}
+                          disabled={readOnly || parametersLocked}
                         />
                       </div>
                     </div>
@@ -332,7 +452,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                       step={config.step}
                       value={[typeof value === 'number' ? value : config.defaultValue]}
                       onValueChange={([newValue]) => updateParameter(config.key, newValue)}
-                      disabled={readOnly || !isEnabled}
+                      disabled={readOnly || parametersLocked || !isEnabled}
                       className={!isEnabled ? 'opacity-50' : ''}
                     />
                     {!isEnabled && (

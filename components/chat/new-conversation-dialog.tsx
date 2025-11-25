@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,6 +48,11 @@ export function NewConversationDialog({
   const { createConversation } = useConversations()
   const { setCurrentConversation } = useConversationStore()
   const router = useRouter()
+
+  // 过滤出对话角色（排除用户角色）
+  const conversationCharacters = useMemo(() => {
+    return characters.filter(char => !char.isUserProfile)
+  }, [characters])
 
   const handleCreate = async () => {
     if (!characterId) return
@@ -122,7 +127,7 @@ export function NewConversationDialog({
                 <SelectValue placeholder="选择一个角色" />
               </SelectTrigger>
               <SelectContent>
-                {characters.map((char) => (
+                {conversationCharacters.map((char) => (
                   <SelectItem key={char.id} value={char.id}>
                     {char.name}
                   </SelectItem>

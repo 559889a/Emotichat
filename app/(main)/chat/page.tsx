@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { MessageSquare, Sparkles, Code } from "lucide-react"
+import { MessageSquare, Sparkles, Code, Clock, ChevronRight } from "lucide-react"
+import Link from "next/link"
 import { useConversationStore } from "@/stores/conversation"
 import { useConversations } from "@/hooks/useConversations"
 import { useCharacters } from "@/hooks/useCharacters"
@@ -72,6 +73,7 @@ function ChatPageContent() {
   const {
     messages,
     loading: messagesLoading,
+    isStreaming,
     error: messagesError,
     sendMessage,
     retryMessage,
@@ -304,6 +306,30 @@ function ChatPageContent() {
     };
   }, [devModeSettings.enabled, devModeSettings.maxHistorySize, conversationId, currentCharacter]);
 
+  // 获取最近的3个对话（按更新时间排序）- 必须在所有早期返回之前调用
+  const recentConversations = useMemo(() => {
+    if (!conversations || conversations.length === 0) return [];
+    return [...conversations]
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 3);
+  }, [conversations]);
+
+  // 格式化相对时间
+  const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
+
   // 加载状态
   if (conversationsLoading && !currentConversation && conversationId) {
     return (
@@ -317,6 +343,8 @@ function ChatPageContent() {
 
   // 如果没有选中对话，显示主欢迎页面
   if (!conversationId || !currentConversation) {
+    const hasRecentChats = recentConversations.length > 0;
+
     return (
       <ErrorBoundary>
       <div className="h-full w-full flex items-center justify-center p-4 md:p-8 overflow-auto">
@@ -339,30 +367,78 @@ function ChatPageContent() {
             </p>
           </div>
 
-          {/* 功能特点 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mt-4">
-            <div className="p-4 rounded-lg border bg-card">
-              <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
-              <h3 className="font-semibold mb-1">智能对话</h3>
-              <p className="text-sm text-muted-foreground">
-                基于先进AI技术的自然对话体验
-              </p>
+          {/* 最近聊天或功能特点 */}
+          {hasRecentChats ? (
+            <div className="w-full mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-sm font-medium">最近的聊天</span>
+                </div>
+                <Link
+                  href="/history"
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  查看全部
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {recentConversations.map((conv) => {
+                  const char = characters.find(c => c.id === conv.characterId);
+                  const charAvatar = char?.name.charAt(0).toUpperCase() || 'AI';
+
+                  return (
+                    <Link
+                      key={conv.id}
+                      href={`/chat?id=${conv.id}`}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent hover:border-primary/30 transition-all group"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center text-primary font-medium shrink-0">
+                        {charAvatar}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <h4 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                          {conv.title || '新对话'}
+                        </h4>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {char?.name || '未知角色'} · {conv.messageCount || 0} 条消息
+                        </p>
+                      </div>
+                      <div className="text-xs text-muted-foreground/60 shrink-0">
+                        {formatRelativeTime(conv.updatedAt)}
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-            <div className="p-4 rounded-lg border bg-card">
-              <MessageSquare className="h-6 w-6 mb-2 text-purple-500" />
-              <h3 className="font-semibold mb-1">情感支持</h3>
-              <p className="text-sm text-muted-foreground">
-                理解您的情绪，提供温暖的陪伴
-              </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mt-4">
+              <div className="p-4 rounded-lg border bg-card">
+                <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
+                <h3 className="font-semibold mb-1">智能对话</h3>
+                <p className="text-sm text-muted-foreground">
+                  基于先进AI技术的自然对话体验
+                </p>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <MessageSquare className="h-6 w-6 mb-2 text-purple-500" />
+                <h3 className="font-semibold mb-1">情感支持</h3>
+                <p className="text-sm text-muted-foreground">
+                  理解您的情绪，提供温暖的陪伴
+                </p>
+              </div>
+              <div className="p-4 rounded-lg border bg-card">
+                <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
+                <h3 className="font-semibold mb-1">个性化体验</h3>
+                <p className="text-sm text-muted-foreground">
+                  根据您的喜好定制对话风格
+                </p>
+              </div>
             </div>
-            <div className="p-4 rounded-lg border bg-card">
-              <Sparkles className="h-6 w-6 mb-2 text-pink-500" />
-              <h3 className="font-semibold mb-1">个性化体验</h3>
-              <p className="text-sm text-muted-foreground">
-                根据您的喜好定制对话风格
-              </p>
-            </div>
-          </div>
+          )}
 
           {/* 开始按钮 */}
           <NewConversationDialog
@@ -439,6 +515,7 @@ function ChatPageContent() {
                 characterName={currentCharacter?.name}
                 characterAvatar={characterAvatar}
                 loading={messagesLoading}
+                isStreaming={isStreaming}
                 onRetry={retryMessage}
                 onEdit={editMessage}
                 onDelete={(messageId) => deleteMessage(messageId, false)}

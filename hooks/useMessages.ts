@@ -17,6 +17,7 @@ interface UseMessagesOptions {
 interface UseMessagesReturn {
   messages: Message[];
   loading: boolean;
+  isStreaming: boolean;
   error: string | null;
   fetchMessages: (id?: string) => Promise<void>;
   sendMessage: (content: string, role?: MessageRole) => Promise<void>;
@@ -327,7 +328,8 @@ export function useMessages({
   );
 
   /**
-   * 重试消息（重新生成 AI 回复或重新发送用户消息）
+   * 重试消息（重新生成 AI 回复）
+   * 正确逻辑：删除 AI 消息，然后基于现有用户消息重新生成
    */
   const retryMessage = useCallback(
     async (messageId: string) => {
@@ -345,11 +347,21 @@ export function useMessages({
 
       try {
         if (message.role === 'assistant') {
-          // AI 消息：删除当前 AI 消息及之后的所有消息，重新发送最后一条用户消息
-          const messagesBeforeAssistant = chatMessages.slice(0, messageIndex);
-          setChatMessages(messagesBeforeAssistant);
+          // AI 消息：删除当前 AI 消息，重新生成
+          // 1. 先在后端删除
+          const url = new URL(
+            `/api/conversations/${conversationId}/messages/${messageId}`,
+            window.location.origin
+          );
+          url.searchParams.set('deleteFollowing', 'true');
 
-          // 重新发送最后一条用户消息
+          const deleteResponse = await fetch(url.toString(), { method: 'DELETE' });
+          if (!deleteResponse.ok) {
+            throw new Error('删除消息失败');
+          }
+
+          // 2. 找到最后一条用户消息的内容
+          const messagesBeforeAssistant = chatMessages.slice(0, messageIndex);
           const lastUserMessage = messagesBeforeAssistant
             .slice()
             .reverse()
@@ -362,6 +374,12 @@ export function useMessages({
               .join('');
 
             if (text) {
+              // 3. 更新本地消息列表（移除 AI 消息和最后一条用户消息）
+              // 这样 sendChatMessage 添加用户消息后不会重复
+              const messagesWithoutLastUser = messagesBeforeAssistant.slice(0, -1);
+              setChatMessages(messagesWithoutLastUser);
+
+              // 4. 使用 sendChatMessage 触发新的 AI 回复
               await sendChatMessage({
                 role: 'user',
                 parts: [{ type: 'text', text }],
@@ -369,11 +387,25 @@ export function useMessages({
             }
           }
         } else if (message.role === 'user') {
-          // 用户消息：删除该消息之后的所有消息，重新发送该用户消息
+          // 用户消息重试：删除该用户消息之后的所有消息（包括AI回复），重新发送
+          // 1. 先在后端删除后续消息
+          const url = new URL(
+            `/api/conversations/${conversationId}/messages/${messageId}`,
+            window.location.origin
+          );
+          url.searchParams.set('deleteFollowing', 'true');
+          url.searchParams.set('keepSelf', 'true');
+
+          const deleteResponse = await fetch(url.toString(), { method: 'DELETE' });
+          if (!deleteResponse.ok) {
+            throw new Error('删除消息失败');
+          }
+
+          // 2. 更新本地消息列表（不包括该用户消息，因为 sendChatMessage 会添加）
           const messagesBeforeUser = chatMessages.slice(0, messageIndex);
           setChatMessages(messagesBeforeUser);
 
-          // 重新发送该用户消息
+          // 3. 重新发送该用户消息触发 AI 回复
           if (message.content) {
             await sendChatMessage({
               role: 'user',
@@ -391,6 +423,8 @@ export function useMessages({
 
   /**
    * 编辑消息
+   * 正确逻辑：更新消息内容，删除后续消息，重新触发 AI 回复
+   * 不会新建楼层，而是原地更新用户消息
    */
   const editMessage = useCallback(
     async (messageId: string, content: string) => {
@@ -398,11 +432,17 @@ export function useMessages({
         throw new Error('没有活动对话');
       }
 
+      const messageIndex = messages.findIndex((m: Message) => m.id === messageId);
+      if (messageIndex === -1) {
+        throw new Error('消息不存在');
+      }
+
       setLoading(true);
       setError(null);
 
       try {
-        const response = await fetch(
+        // 1. 在服务端更新消息内容
+        const editResponse = await fetch(
           `/api/conversations/${conversationId}/messages/${messageId}`,
           {
             method: 'PATCH',
@@ -411,32 +451,34 @@ export function useMessages({
           }
         );
 
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || '编辑消息失败');
+        const editResult = await editResponse.json();
+        if (!editResponse.ok || !editResult.success) {
+          throw new Error(editResult.error || '编辑消息失败');
         }
 
-        // 编辑后需要删除该消息之后的所有消息，然后重新生成
-        const messageIndex = messages.findIndex((m: Message) => m.id === messageId);
-        if (messageIndex !== -1) {
-          // 保留到编辑的消息（含编辑后的内容）
-          const messagesBeforeEdit = chatMessages.slice(0, messageIndex + 1);
-          
-          // 更新编辑后的消息内容
-          messagesBeforeEdit[messageIndex] = {
-            ...messagesBeforeEdit[messageIndex],
-            parts: [{ type: 'text', text: content }],
-          };
-          
-          setChatMessages(messagesBeforeEdit);
-          
-          // 重新发送以触发 AI 响应
-          await sendChatMessage({
-            role: 'user',
-            parts: [{ type: 'text', text: content }],
-          });
+        // 2. 删除该消息之后的所有消息（在服务端）
+        const deleteUrl = new URL(
+          `/api/conversations/${conversationId}/messages/${messageId}`,
+          window.location.origin
+        );
+        deleteUrl.searchParams.set('deleteFollowing', 'true');
+        deleteUrl.searchParams.set('keepSelf', 'true');
+
+        const deleteResponse = await fetch(deleteUrl.toString(), { method: 'DELETE' });
+        if (!deleteResponse.ok) {
+          console.warn('删除后续消息失败，但继续执行');
         }
+
+        // 3. 更新本地消息列表：保留到编辑消息之前的所有消息（不包括编辑的消息本身）
+        // 因为 sendChatMessage 会添加新的用户消息
+        const messagesBeforeEdit = chatMessages.slice(0, messageIndex);
+        setChatMessages(messagesBeforeEdit);
+
+        // 4. 使用 sendChatMessage 发送编辑后的内容，这会添加用户消息并触发 AI 回复
+        await sendChatMessage({
+          role: 'user',
+          parts: [{ type: 'text', text: content }],
+        });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '编辑消息失败';
         setError(errorMessage);
@@ -445,12 +487,14 @@ export function useMessages({
           duration: 5000,
         });
         console.error('Failed to edit message:', err);
+        // 出错时重新获取消息以恢复正确状态
+        await fetchMessages();
         throw err;
       } finally {
         setLoading(false);
       }
     },
-    [conversationId, messages, chatMessages, setChatMessages, sendChatMessage]
+    [conversationId, messages, chatMessages, setChatMessages, sendChatMessage, fetchMessages]
   );
 
   /**
@@ -581,9 +625,17 @@ export function useMessages({
     }
   }, [status, conversationId]);
 
+  // 判断是否正在加载（包括流式和非流式）
+  // status: 'ready' | 'submitted' | 'streaming' | 'error'
+  // 'submitted' 表示非流式请求已发送，正在等待响应
+  // 'streaming' 表示正在流式输出
+  const isLoading = loading || status === 'streaming' || status === 'submitted';
+  const isStreamingStatus = status === 'streaming';
+
   return {
     messages,
-    loading: loading || status === 'streaming',
+    loading: isLoading,
+    isStreaming: isStreamingStatus,
     error: error || (chatError ? chatError.message : null),
     fetchMessages,
     sendMessage,

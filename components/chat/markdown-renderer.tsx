@@ -122,10 +122,12 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
       );
     },
     
-    // 引用块
+    // 引用块 - 美化设计
     blockquote: ({ children }) => (
-      <blockquote className="pl-4 my-4 border-l-4 border-primary/30 text-muted-foreground italic">
-        {children}
+      <blockquote className="relative pl-4 pr-3 py-3 my-4 rounded-r-lg bg-gradient-to-r from-primary/5 to-transparent border-l-4 border-primary/50 text-muted-foreground italic before:content-['\u201C'] before:absolute before:top-1 before:left-2 before:text-3xl before:text-primary/20 before:font-serif">
+        <div className="ml-4">
+          {children}
+        </div>
       </blockquote>
     ),
     

@@ -3,7 +3,7 @@
 import { useState, useRef, KeyboardEvent, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Plus, Send, Loader2, Square } from 'lucide-react';
+import { Plus, Send, Square } from 'lucide-react';
 import { InlineTokenCounter } from './token-counter';
 import { countTokens } from '@/lib/utils/token-counter';
 
@@ -108,15 +108,18 @@ export function ChatInput({
           </div>
         </div>
 
-        {isSending && onStop ? (
+        {(isSending || disabled) && onStop ? (
           <Button
             onClick={onStop}
             size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-destructive hover:bg-destructive/90 transition-all flex-shrink-0"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-muted hover:bg-muted/80 border border-border/50 shadow-sm transition-all flex-shrink-0 group"
             aria-label="停止生成"
             title="停止生成"
           >
-            <Square className="h-3 w-3 fill-current" />
+            <div className="relative">
+              <Square className="h-3 w-3 fill-muted-foreground text-muted-foreground group-hover:scale-110 transition-transform" />
+              <div className="absolute inset-0 rounded-sm bg-muted-foreground/20 animate-ping" />
+            </div>
             <span className="sr-only">停止生成</span>
           </Button>
         ) : (
@@ -125,21 +128,12 @@ export function ChatInput({
             disabled={!canSend}
             size="icon"
             className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex-shrink-0"
-            aria-label={isSending ? '发送中' : canSend ? '发送消息' : '请输入消息'}
+            aria-label={canSend ? '发送消息' : '请输入消息'}
             aria-disabled={!canSend}
             title={canSend ? '发送消息 (Enter)' : '请输入消息'}
           >
-            {isSending ? (
-              <>
-                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                <span className="sr-only">发送中</span>
-              </>
-            ) : (
-              <>
-                <Send className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="sr-only">发送消息</span>
-              </>
-            )}
+            <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="sr-only">发送消息</span>
           </Button>
         )}
       </div>

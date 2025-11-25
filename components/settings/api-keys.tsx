@@ -3,6 +3,7 @@
 /**
  * API Key 管理界面
  * 用于管理 OpenAI、Gemini、Claude 的 API Key
+ * 支持模型选择功能（拉取模型列表或手动输入）
  */
 
 import * as React from 'react';
@@ -13,74 +14,111 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { OFFICIAL_PROVIDERS } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
 
 // 本地存储 key
 const STORAGE_KEY_PREFIX = 'emotichat_api_key_';
+const STORAGE_MODELS_PREFIX = 'emotichat_fetched_models_';
+const STORAGE_SELECTED_MODEL_PREFIX = 'emotichat_selected_model_';
 
 interface ApiKeyState {
   value: string;
   isVisible: boolean;
   isTesting: boolean;
+  fetchedModels: string[]; // 拉取到的完整模型列表
+  selectedModel: string; // 用户选择的模型
+  customModelInput: string; // 用户手动输入的模型
   testResult?: {
     success: boolean;
     message: string;
+    models?: string[]; // 拉取到的模型列表（用于显示）
   };
 }
 
 export function ApiKeysManager() {
   // API Key 状态
   const [apiKeys, setApiKeys] = React.useState<Record<AIProviderType, ApiKeyState>>({
-    openai: { value: '', isVisible: false, isTesting: false },
-    google: { value: '', isVisible: false, isTesting: false },
-    anthropic: { value: '', isVisible: false, isTesting: false },
+    openai: { value: '', isVisible: false, isTesting: false, fetchedModels: [], selectedModel: '', customModelInput: '' },
+    google: { value: '', isVisible: false, isTesting: false, fetchedModels: [], selectedModel: '', customModelInput: '' },
+    anthropic: { value: '', isVisible: false, isTesting: false, fetchedModels: [], selectedModel: '', customModelInput: '' },
   });
 
-  // 从 localStorage 加载 API Keys
+  // 从 localStorage 加载 API Keys、拉取的模型列表和选择的模型
   React.useEffect(() => {
     const providers: AIProviderType[] = ['openai', 'google', 'anthropic'];
-    
+
     setApiKeys((prev) => {
       const updated = { ...prev };
-      
+
       for (const provider of providers) {
-        const stored = localStorage.getItem(STORAGE_KEY_PREFIX + provider);
-        if (stored) {
-          updated[provider] = {
-            ...updated[provider],
-            value: stored,
-          };
-        }
+        const storedKey = localStorage.getItem(STORAGE_KEY_PREFIX + provider);
+        const storedModels = localStorage.getItem(STORAGE_MODELS_PREFIX + provider);
+        const storedSelectedModel = localStorage.getItem(STORAGE_SELECTED_MODEL_PREFIX + provider);
+
+        const fetchedModels = storedModels ? JSON.parse(storedModels) : [];
+        const selectedModel = storedSelectedModel || '';
+
+        updated[provider] = {
+          ...updated[provider],
+          value: storedKey || '',
+          fetchedModels,
+          selectedModel,
+          customModelInput: selectedModel,
+        };
       }
-      
+
       return updated;
     });
   }, []);
 
-  // 保存 API Key
+  // 保存 API Key 和选择的模型
   const handleSave = (provider: AIProviderType) => {
-    const value = apiKeys[provider].value.trim();
-    
-    if (value) {
-      localStorage.setItem(STORAGE_KEY_PREFIX + provider, value);
+    const state = apiKeys[provider];
+    const apiKeyValue = state.value.trim();
+    const modelValue = state.customModelInput.trim();
+
+    if (apiKeyValue) {
+      localStorage.setItem(STORAGE_KEY_PREFIX + provider, apiKeyValue);
+
+      // 保存选择的模型
+      if (modelValue) {
+        localStorage.setItem(STORAGE_SELECTED_MODEL_PREFIX + provider, modelValue);
+      }
+
       setApiKeys((prev) => ({
         ...prev,
         [provider]: {
           ...prev[provider],
+          selectedModel: modelValue,
           testResult: {
             success: true,
-            message: 'API Key 已保存',
+            message: modelValue ? `API Key 和模型 "${modelValue}" 已保存` : 'API Key 已保存',
           },
         },
       }));
+
+      // 触发配置变化事件
+      window.dispatchEvent(new Event('officialProviderConfigChanged'));
     } else {
       localStorage.removeItem(STORAGE_KEY_PREFIX + provider);
+      localStorage.removeItem(STORAGE_SELECTED_MODEL_PREFIX + provider);
+      localStorage.removeItem(STORAGE_MODELS_PREFIX + provider);
       setApiKeys((prev) => ({
         ...prev,
         [provider]: {
           ...prev[provider],
           value: '',
+          fetchedModels: [],
+          selectedModel: '',
+          customModelInput: '',
           testResult: undefined,
         },
       }));
@@ -98,10 +136,10 @@ export function ApiKeysManager() {
     }));
   };
 
-  // 测试连接（简单版本，实际应该调用 API）
+  // 测试连接并拉取模型列表
   const testConnection = async (provider: AIProviderType) => {
     const apiKey = apiKeys[provider].value.trim();
-    
+
     if (!apiKey) {
       setApiKeys((prev) => ({
         ...prev,
@@ -125,34 +163,134 @@ export function ApiKeysManager() {
       },
     }));
 
-    // 模拟测试（实际应该调用真实 API）
-    // 这里简单验证格式
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // 根据提供商类型构建请求
+      let baseUrl: string;
+      let protocol: string;
 
-    let success = false;
-    let message = '';
+      switch (provider) {
+        case 'openai':
+          baseUrl = 'https://api.openai.com';
+          protocol = 'openai';
+          break;
+        case 'google':
+          baseUrl = 'https://generativelanguage.googleapis.com';
+          protocol = 'gemini';
+          break;
+        case 'anthropic':
+          baseUrl = 'https://api.anthropic.com';
+          protocol = 'anthropic';
+          break;
+        default:
+          throw new Error('Unknown provider');
+      }
 
-    // 简单的格式验证
-    if (provider === 'openai' && apiKey.startsWith('sk-')) {
-      success = true;
-      message = 'API Key 格式正确（未验证有效性）';
-    } else if (provider === 'google' && apiKey.length > 20) {
-      success = true;
-      message = 'API Key 格式正确（未验证有效性）';
-    } else if (provider === 'anthropic' && apiKey.startsWith('sk-ant-')) {
-      success = true;
-      message = 'API Key 格式正确（未验证有效性）';
-    } else {
-      success = false;
-      message = 'API Key 格式可能不正确';
+      // 调用 API 端点获取模型列表（同时验证密钥）
+      const response = await fetch(
+        `/api/models?protocol=${protocol}&baseUrl=${encodeURIComponent(baseUrl)}&apiKey=${encodeURIComponent(apiKey)}`
+      );
+
+      const data = await response.json();
+
+      if (data.success && data.models && data.models.length > 0) {
+        // 成功获取模型列表 - 保存完整列表
+        const allModelIds = data.models.map((m: { id: string; name?: string }) => m.id);
+        const displayModels = data.models.slice(0, 5).map((m: { id: string; name?: string }) => m.name || m.id);
+
+        // 保存拉取到的模型列表到 localStorage
+        localStorage.setItem(STORAGE_MODELS_PREFIX + provider, JSON.stringify(allModelIds));
+
+        setApiKeys((prev) => ({
+          ...prev,
+          [provider]: {
+            ...prev[provider],
+            isTesting: false,
+            fetchedModels: allModelIds,
+            testResult: {
+              success: true,
+              message: `密钥有效，获取到 ${data.models.length} 个模型`,
+              models: displayModels,
+            },
+          },
+        }));
+      } else if (data.error) {
+        // API 返回错误
+        setApiKeys((prev) => ({
+          ...prev,
+          [provider]: {
+            ...prev[provider],
+            isTesting: false,
+            testResult: {
+              success: false,
+              message: data.error || '密钥验证失败',
+            },
+          },
+        }));
+      } else {
+        // 无法获取模型列表，使用硬编码列表作为 fallback
+        const hardcodedModels = OFFICIAL_PROVIDERS[provider].models.map(m => m.id);
+
+        setApiKeys((prev) => ({
+          ...prev,
+          [provider]: {
+            ...prev[provider],
+            isTesting: false,
+            fetchedModels: hardcodedModels,
+            testResult: {
+              success: true,
+              message: '密钥验证成功，使用默认模型列表',
+            },
+          },
+        }));
+      }
+    } catch (error) {
+      console.error('Test connection error:', error);
+      setApiKeys((prev) => ({
+        ...prev,
+        [provider]: {
+          ...prev[provider],
+          isTesting: false,
+          testResult: {
+            success: false,
+            message: '连接测试失败，请检查网络',
+          },
+        },
+      }));
     }
+  };
 
+  // 选择模型（从下拉列表）
+  const handleSelectModel = (provider: AIProviderType, modelId: string) => {
+    if (modelId === '__custom__') {
+      // 选择手动输入
+      setApiKeys((prev) => ({
+        ...prev,
+        [provider]: {
+          ...prev[provider],
+          selectedModel: '',
+          customModelInput: '',
+        },
+      }));
+    } else {
+      setApiKeys((prev) => ({
+        ...prev,
+        [provider]: {
+          ...prev[provider],
+          selectedModel: modelId,
+          customModelInput: modelId,
+        },
+      }));
+    }
+  };
+
+  // 更新手动输入的模型
+  const handleCustomModelInputChange = (provider: AIProviderType, value: string) => {
     setApiKeys((prev) => ({
       ...prev,
       [provider]: {
         ...prev[provider],
-        isTesting: false,
-        testResult: { success, message },
+        customModelInput: value,
+        selectedModel: value,
       },
     }));
   };
@@ -264,23 +402,101 @@ export function ApiKeysManager() {
           {/* 测试结果 */}
           {state.testResult && (
             <Alert variant={state.testResult.success ? 'default' : 'destructive'}>
-              <div className="flex items-center gap-2">
-                {state.testResult.success ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <X className="h-4 w-4" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {state.testResult.success ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <X className="h-4 w-4" />
+                  )}
+                  <AlertDescription>{state.testResult.message}</AlertDescription>
+                </div>
+                {/* 显示拉取到的模型列表预览 */}
+                {state.testResult.models && state.testResult.models.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {state.testResult.models.map((model) => (
+                      <Badge key={model} variant="secondary" className="text-xs">
+                        {model}
+                      </Badge>
+                    ))}
+                    {state.fetchedModels.length > 5 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{state.fetchedModels.length - 5} 个
+                      </Badge>
+                    )}
+                  </div>
                 )}
-                <AlertDescription>{state.testResult.message}</AlertDescription>
               </div>
             </Alert>
           )}
 
-          {/* 可用模型列表 */}
+          {/* 模型选择器 */}
           <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">可用模型</Label>
+            <Label>选择模型</Label>
+            {state.fetchedModels.length > 0 ? (
+              // 有拉取到的模型列表时显示下拉选择器
+              <div className="space-y-2">
+                <Select
+                  value={state.fetchedModels.includes(state.selectedModel) ? state.selectedModel : '__custom__'}
+                  onValueChange={(value) => handleSelectModel(providerType, value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="从列表中选择模型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__custom__">手动输入...</SelectItem>
+                    {state.fetchedModels.map((modelId) => (
+                      <SelectItem key={modelId} value={modelId}>
+                        {modelId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {/* 显示手动输入框（当选择"手动输入"或输入的值不在列表中时） */}
+                {(!state.fetchedModels.includes(state.selectedModel) || state.selectedModel === '') && (
+                  <Input
+                    value={state.customModelInput}
+                    onChange={(e) => handleCustomModelInputChange(providerType, e.target.value)}
+                    placeholder="输入模型名称，如 gpt-4o"
+                  />
+                )}
+              </div>
+            ) : (
+              // 没有拉取到模型时显示输入框（使用硬编码列表作为提示）
+              <div className="space-y-2">
+                <Input
+                  value={state.customModelInput}
+                  onChange={(e) => handleCustomModelInputChange(providerType, e.target.value)}
+                  placeholder={`输入模型名称，如 ${provider.models[0]?.id || 'model-id'}`}
+                />
+                <p className="text-xs text-muted-foreground">
+                  提示：点击"测试连接"拉取可用模型列表，或直接输入模型 ID
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 当前选择的模型 */}
+          {state.selectedModel && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">当前模型:</span>
+              <Badge variant="default" className="font-mono">
+                {state.selectedModel}
+              </Badge>
+            </div>
+          )}
+
+          {/* 硬编码模型列表（作为参考） */}
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">预设模型参考</Label>
             <div className="flex flex-wrap gap-1">
               {provider.models.slice(0, 3).map((model) => (
-                <Badge key={model.id} variant="secondary" className="text-xs">
+                <Badge
+                  key={model.id}
+                  variant="outline"
+                  className="text-xs cursor-pointer hover:bg-accent"
+                  onClick={() => handleCustomModelInputChange(providerType, model.id)}
+                >
                   {model.name}
                 </Badge>
               ))}
@@ -338,11 +554,48 @@ export function getStoredApiKey(provider: AIProviderType): string | null {
 }
 
 /**
+ * 获取存储的选择模型
+ */
+export function getStoredSelectedModel(provider: AIProviderType): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(STORAGE_SELECTED_MODEL_PREFIX + provider);
+}
+
+/**
+ * 获取存储的拉取模型列表
+ */
+export function getStoredFetchedModels(provider: AIProviderType): string[] {
+  if (typeof window === 'undefined') return [];
+  const stored = localStorage.getItem(STORAGE_MODELS_PREFIX + provider);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 检查是否配置了至少一个 API Key
  */
 export function hasAnyApiKey(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   const providers: AIProviderType[] = ['openai', 'google', 'anthropic'];
   return providers.some(p => localStorage.getItem(STORAGE_KEY_PREFIX + p));
+}
+
+/**
+ * 获取官方提供商的完整配置
+ */
+export function getOfficialProviderConfig(provider: AIProviderType): {
+  apiKey: string | null;
+  selectedModel: string | null;
+  fetchedModels: string[];
+} {
+  return {
+    apiKey: getStoredApiKey(provider),
+    selectedModel: getStoredSelectedModel(provider),
+    fetchedModels: getStoredFetchedModels(provider),
+  };
 }
