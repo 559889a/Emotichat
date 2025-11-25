@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Message } from '@/types';
 import { MessageBubble } from './message-bubble';
 import { Loader2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface MessageListProps {
   messages: Message[];
@@ -29,50 +28,83 @@ export function MessageList({
   onDeleteFollowing,
   onVersionChange,
 }: MessageListProps) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const previousMessageCountRef = useRef(messages.length);
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
 
-  // 滚动到底部的辅助函数
-  const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
-    // 查找 ScrollArea 的 viewport 元素
-    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
-    if (viewport) {
-      viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior,
+  // 滚动到底部 - 使用 scrollIntoView 确保可靠
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
       });
     }
-  };
-
-  // 自动滚动到底部（仅当有新消息时）
-  useEffect(() => {
-    const isNewMessage = messages.length > previousMessageCountRef.current;
-
-    if (isNewMessage) {
-      scrollToBottom('smooth');
-    }
-
-    previousMessageCountRef.current = messages.length;
-  }, [messages.length]);
-
-  // 初始加载时滚动到底部
-  useEffect(() => {
-    if (messages.length > 0) {
-      // 使用 setTimeout 确保 DOM 已完全渲染
-      setTimeout(() => scrollToBottom('auto'), 0);
-    }
   }, []);
+
+  // 检查是否在底部附近
+  const isNearBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    return scrollHeight - scrollTop - clientHeight < 150;
+  }, []);
+
+  // 监听用户滚动，判断是否主动向上滚动
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const currentScrollTop = container.scrollTop;
+      // 如果用户向上滚动超过 50px，认为是主动滚动
+      if (lastScrollTopRef.current - currentScrollTop > 50) {
+        userScrolledRef.current = true;
+      }
+      // 如果滚动到底部附近，重置标记
+      if (isNearBottom()) {
+        userScrolledRef.current = false;
+      }
+      lastScrollTopRef.current = currentScrollTop;
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isNearBottom]);
+
+  // 消息变化时滚动到底部
+  useEffect(() => {
+    // 只有当用户没有主动向上滚动时才自动滚动
+    if (!userScrolledRef.current) {
+      // 使用 requestAnimationFrame 确保 DOM 已更新
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom(false);
+        });
+      });
+    }
+  }, [messages, scrollToBottom]);
+
+  // loading 变化时滚动到底部
+  useEffect(() => {
+    if (loading && !userScrolledRef.current) {
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+      });
+    }
+  }, [loading, scrollToBottom]);
 
   if (messages.length === 0 && !loading) {
     return null;
   }
 
   return (
-    <div ref={scrollAreaRef} className="h-full">
-      <ScrollArea className="h-full px-2 sm:px-3 md:px-4">
-        <div className="max-w-4xl mx-auto py-4 sm:py-6 space-y-1">
+    <div
+      ref={scrollContainerRef}
+      className="h-full overflow-y-auto overflow-x-hidden px-2 sm:px-3 md:px-4"
+    >
+      <div className="max-w-4xl mx-auto py-4 sm:py-6 space-y-1">
         {messages.map((message, index) => {
           // 第一条消息或 ID 为 'welcome-message' 的消息不显示操作按钮
           const isWelcomeMessage = index === 0 || message.id === 'welcome-message'
@@ -134,8 +166,7 @@ export function MessageList({
 
         {/* 滚动锚点 */}
         <div ref={bottomRef} />
-        </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

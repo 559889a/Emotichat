@@ -173,221 +173,23 @@ function ChatPageContent() {
     await fetchMessages(conversationId);
   }, [conversationId, messages, fetchMessages]);
 
-  // Dev Mode: 监听消息变化，在 AI 回复完成时创建 devData
+  // Dev Mode: 前端估算的日志创建（已禁用，改用服务端数据）
+  // 现在 DevMode 日志完全由 actualRequestBody 事件创建，确保显示的是真实发送给 LLM 的内容
+  // 这个 useEffect 只用于在 AI 回复完成时清理 pendingRequestRef
   useEffect(() => {
     if (!devModeSettings.enabled || !pendingRequestRef.current) return;
 
-    // 检测是否有新的 assistant 消息（AI 回复完成）
     const lastMessage = messages[messages.length - 1];
     const isAssistantMessage = lastMessage?.role === 'assistant';
     const isNotLoading = !messagesLoading;
 
     if (isAssistantMessage && isNotLoading) {
-      const pending = pendingRequestRef.current;
-      const startTime = pending.timestamp.getTime();
-
-      // 获取全局模型配置
-      const globalConfig = getGlobalModelConfig();
-
-      // 构建完整的消息数组（需要包含系统提示词）
-      // 注意：这是简化版本，实际后端使用 buildPrompt 函数处理更复杂的逻辑
-      const processedMessages: Array<{
-        id: string;
-        role: 'system' | 'user' | 'assistant';
-        content: string;
-        layer: number;
-      }> = [];
-
-      // 收集所有提示词项
-      const allPromptItems: Array<{
-        id: string;
-        order: number;
-        content: string;
-        role: 'system' | 'user' | 'assistant';
-        enabled: boolean;
-        injection?: { enabled: boolean };
-      }> = [];
-
-      // 1. 添加角色提示词配置
-      // 如果有新版 promptConfig，优先使用；否则使用旧版 systemPrompt
-      if (currentCharacter?.promptConfig?.prompts && currentCharacter.promptConfig.prompts.length > 0) {
-        // 新版配置方式
-        allPromptItems.push(...currentCharacter.promptConfig.prompts as any[]);
-      } else if (currentCharacter?.systemPrompt) {
-        // 旧版兼容
-        allPromptItems.push({
-          id: `system-${currentCharacter.id}`,
-          order: 0,
-          content: currentCharacter.systemPrompt,
-          role: 'system',
-          enabled: true,
-        });
-      }
-
-      // 3. 添加对话级 promptConfig 中的提示词
-      if (fullConversation?.promptConfig?.prompts) {
-        allPromptItems.push(...fullConversation.promptConfig.prompts as any[]);
-      }
-
-      // 4. 添加对话主提示词（如果有）
-      if (fullConversation?.promptConfig?.mainPrompt) {
-        allPromptItems.push({
-          id: `main-${fullConversation.id}`,
-          order: 1000,
-          content: fullConversation.promptConfig.mainPrompt,
-          role: 'system',
-          enabled: true,
-        });
-      }
-
-      // 按 order 排序并过滤启用的、非注入的提示词
-      allPromptItems
-        .filter(p => p.enabled && !p.injection?.enabled)
-        .sort((a, b) => a.order - b.order)
-        .forEach((prompt) => {
-          processedMessages.push({
-            id: prompt.id,
-            role: prompt.role,
-            content: prompt.content,
-            layer: processedMessages.length,
-          });
-        });
-
-      // 5. 添加历史聊天消息
-      pending.messagesBeforeSend.forEach((m) => {
-        processedMessages.push({
-          id: m.id,
-          role: m.role as 'system' | 'user' | 'assistant',
-          content: m.content,
-          layer: processedMessages.length,
-        });
-      });
-
-      // 6. 添加用户发送的消息
-      processedMessages.push({
-        id: crypto.randomUUID(),
-        role: 'user' as const,
-        content: pending.userContent,
-        layer: processedMessages.length,
-      });
-
-      // 7. 添加 AI 回复
-      processedMessages.push({
-        id: lastMessage.id,
-        role: 'assistant' as const,
-        content: lastMessage.content,
-        layer: processedMessages.length,
-      });
-
-      // 构建完整请求体（包含所有参数）
-      const parameters: any = fullConversation?.modelConfig?.parameters || {};
-      const requestBody: any = {
-        model: globalConfig?.modelId || fullConversation?.modelConfig?.modelId || 'gpt-4o',
-        messages: processedMessages.slice(0, -1).map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
-      };
-
-      // 添加所有可用的模型参数
-      if (parameters.temperature !== undefined) {
-        requestBody.temperature = parameters.temperature;
-      }
-      if (parameters.topP !== undefined) {
-        requestBody.top_p = parameters.topP;
-      }
-      if (parameters.maxTokens !== undefined && parameters.maxTokens > 0) {
-        requestBody.max_tokens = parameters.maxTokens;
-      }
-      if (parameters.presencePenalty !== undefined) {
-        requestBody.presence_penalty = parameters.presencePenalty;
-      }
-      if (parameters.frequencyPenalty !== undefined) {
-        requestBody.frequency_penalty = parameters.frequencyPenalty;
-      }
-      if (parameters.topK !== undefined) {
-        requestBody.top_k = parameters.topK;
-      }
-      if (parameters.stopSequences && parameters.stopSequences.length > 0) {
-        requestBody.stop = parameters.stopSequences;
-      }
-
-      const devData: DevModeData = {
-        id: crypto.randomUUID(),
-        conversationId: pending.conversationId,
-        messageId: lastMessage.id,
-        promptBuild: {
-          timestamp: pending.timestamp,
-          duration: 0,
-          rawPromptItems: [],
-          processedMessages: processedMessages.slice(0, -1),
-          warnings: [],
-          sources: {
-            character: currentCharacter?.name,
-            conversation: pending.conversationId,
-          },
-        },
-        apiRequest: {
-          timestamp: pending.timestamp,
-          model: {
-            provider: globalConfig?.providerId || fullConversation?.modelConfig?.providerId || 'openai',
-            modelId: globalConfig?.modelId || fullConversation?.modelConfig?.modelId || 'gpt-4o',
-            parameters: fullConversation?.modelConfig?.parameters || {},
-          },
-          messages: processedMessages.slice(0, -1),
-          requestBody: requestBody,
-        },
-        apiResponse: {
-          timestamp: new Date(),
-          duration: Date.now() - startTime,
-          tokenUsage: {
-            promptTokens: Math.ceil(processedMessages.slice(0, -1).reduce((sum, m) => sum + m.content.length, 0) / 4),
-            completionTokens: Math.ceil(lastMessage.content.length / 4),
-            totalTokens: Math.ceil(processedMessages.reduce((sum, m) => sum + m.content.length, 0) / 4),
-          },
-          content: lastMessage.content,
-        },
-        tokenAnalysis: {
-          perMessage: processedMessages.map(m => ({
-            messageId: m.id,
-            role: m.role,
-            content: m.content.substring(0, 100) + (m.content.length > 100 ? '...' : ''),
-            tokens: Math.ceil(m.content.length / 4),
-            percentage: 0,
-            characters: m.content.length,
-          })),
-          total: {
-            input: Math.ceil(processedMessages.slice(0, -1).reduce((sum, m) => sum + m.content.length, 0) / 4),
-            output: Math.ceil(lastMessage.content.length / 4),
-            total: Math.ceil(processedMessages.reduce((sum, m) => sum + m.content.length, 0) / 4),
-            limit: 128000,
-            percentage: (Math.ceil(processedMessages.reduce((sum, m) => sum + m.content.length, 0) / 4) / 128000) * 100,
-          },
-          warnings: [],
-        },
-        performance: {
-          promptBuildDuration: 0,
-          requestDuration: Date.now() - startTime,
-          totalDuration: Date.now() - startTime,
-        },
-        createdAt: new Date(),
-      };
-
-      setDevModeLogs(prev => {
-        const newLogs = [...prev, devData];
-        // 最多保留配置的历史记录数
-        if (newLogs.length > devModeSettings.maxHistorySize) {
-          return newLogs.slice(-devModeSettings.maxHistorySize);
-        }
-        return newLogs;
-      });
-
-      // 清除待处理的请求
+      // 清理 pendingRequestRef，实际日志由 actualRequestBody 事件处理程序创建
       pendingRequestRef.current = null;
     }
-  }, [messages, messagesLoading, devModeSettings.enabled, devModeSettings.maxHistorySize, fullConversation, currentCharacter]);
+  }, [messages, messagesLoading, devModeSettings.enabled]);
 
-  // Dev Mode: 监听服务端实际请求体事件，更新 devmode 日志
+  // Dev Mode: 监听服务端实际请求体事件，直接创建/更新 devmode 日志
   useEffect(() => {
     if (!devModeSettings.enabled) return;
 
@@ -397,38 +199,110 @@ function ChatPageContent() {
 
       if (eventConvId !== conversationId) return;
 
-      console.log('[Dev Mode] Updating devmode log with actual request body');
-
-      // 更新最新的 devmode 日志
-      setDevModeLogs(prev => {
-        if (prev.length === 0) return prev;
-
-        const latestLog = prev[prev.length - 1];
-
-        // 直接使用服务端构建的完整请求体
-        const updatedLog = {
-          ...latestLog,
-          apiRequest: {
-            ...latestLog.apiRequest,
-            messages: requestBody.messages.map((m: any) => ({
-              id: crypto.randomUUID(),
-              role: m.role,
-              content: m.content,
-              layer: 0,
-            })),
-            requestBody: requestBody, // 使用服务端的完整请求体
-          },
-        };
-
-        return [...prev.slice(0, -1), updatedLog];
+      console.log('[Dev Mode] Received actual request body from server:', {
+        model: requestBody.model,
+        messagesCount: requestBody.messages?.length,
+        parameters: Object.keys(requestBody).filter(k => k !== 'model' && k !== 'messages')
       });
+
+      // 获取全局模型配置
+      const globalConfig = getGlobalModelConfig();
+
+      // 从服务端请求体构建消息数组
+      const serverMessages = (requestBody.messages || []).map((m: any, index: number) => ({
+        id: `server-msg-${index}-${crypto.randomUUID().slice(0, 8)}`,
+        role: m.role,
+        content: m.content,
+        layer: index,
+      }));
+
+      // 直接用服务端数据创建 DevMode 日志
+      const devData: DevModeData = {
+        id: crypto.randomUUID(),
+        conversationId: conversationId || '',
+        messageId: `server-response-${Date.now()}`,
+        promptBuild: {
+          timestamp: new Date(),
+          duration: 0,
+          rawPromptItems: [],
+          processedMessages: serverMessages,
+          warnings: [],
+          sources: {
+            character: currentCharacter?.name,
+            conversation: conversationId || '',
+          },
+        },
+        apiRequest: {
+          timestamp: new Date(),
+          model: {
+            provider: globalConfig?.providerId || 'unknown',
+            modelId: requestBody.model || globalConfig?.modelId || 'unknown',
+            parameters: {
+              temperature: requestBody.temperature,
+              top_p: requestBody.top_p,
+              max_tokens: requestBody.max_tokens,
+              presence_penalty: requestBody.presence_penalty,
+              frequency_penalty: requestBody.frequency_penalty,
+            },
+          },
+          messages: serverMessages,
+          requestBody: requestBody, // 完整的服务端请求体
+        },
+        apiResponse: {
+          timestamp: new Date(),
+          duration: 0,
+          tokenUsage: {
+            promptTokens: Math.ceil(serverMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0) / 4),
+            completionTokens: 0,
+            totalTokens: Math.ceil(serverMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0) / 4),
+          },
+          content: '',
+        },
+        tokenAnalysis: {
+          perMessage: serverMessages.map((m: any) => ({
+            messageId: m.id,
+            role: m.role,
+            content: (m.content || '').substring(0, 100) + ((m.content?.length || 0) > 100 ? '...' : ''),
+            tokens: Math.ceil((m.content?.length || 0) / 4),
+            percentage: 0,
+            characters: m.content?.length || 0,
+          })),
+          total: {
+            input: Math.ceil(serverMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0) / 4),
+            output: 0,
+            total: Math.ceil(serverMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0) / 4),
+            limit: 128000,
+            percentage: (Math.ceil(serverMessages.reduce((sum: number, m: any) => sum + (m.content?.length || 0), 0) / 4) / 128000) * 100,
+          },
+          warnings: [],
+        },
+        performance: {
+          promptBuildDuration: 0,
+          requestDuration: 0,
+          totalDuration: 0,
+        },
+        createdAt: new Date(),
+      };
+
+      // 直接添加新日志（而不是更新）
+      setDevModeLogs(prev => {
+        const newLogs = [...prev, devData];
+        // 最多保留配置的历史记录数
+        if (newLogs.length > devModeSettings.maxHistorySize) {
+          return newLogs.slice(-devModeSettings.maxHistorySize);
+        }
+        return newLogs;
+      });
+
+      // 清除待处理的请求（如果有）
+      pendingRequestRef.current = null;
     };
 
     window.addEventListener('actualRequestBody', handleActualRequestBody);
     return () => {
       window.removeEventListener('actualRequestBody', handleActualRequestBody);
     };
-  }, [devModeSettings.enabled, conversationId]);
+  }, [devModeSettings.enabled, devModeSettings.maxHistorySize, conversationId, currentCharacter]);
 
   // 加载状态
   if (conversationsLoading && !currentConversation && conversationId) {
@@ -513,9 +387,9 @@ function ChatPageContent() {
   // 显示对话界面
   return (
     <ErrorBoundary>
-      <div className="h-full w-full flex flex-col lg:flex-row">
+      <div className="h-full w-full flex flex-col lg:flex-row overflow-hidden">
         {/* 主聊天区域 - 根据 Dev Mode 和屏幕尺寸调整宽度 */}
-        <div className={`flex flex-col h-full ${devModeSettings.enabled ? 'w-full lg:w-1/2' : 'w-full'}`}>
+        <div className={`flex flex-col min-h-0 ${devModeSettings.enabled ? 'w-full lg:w-1/2 lg:h-full' : 'w-full'} h-full`}>
           {/* Header with conversation title and settings */}
           <div className="flex-shrink-0 border-b bg-background px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 md:py-3">
             <div className="flex items-center justify-between w-full max-w-full">

@@ -459,14 +459,33 @@ export async function POST(request: Request) {
         const result = streamText(requestOptions);
         const streamResponse = result.toUIMessageStreamResponse();
 
+        // 创建一个 TransformStream 来在流开头添加请求体数据
+        const encoder = new TextEncoder();
+        let isFirst = true;
+        const transformStream = new TransformStream({
+          transform(chunk, controller) {
+            // 在第一个数据包之前，先发送请求体数据
+            if (isFirst) {
+              isFirst = false;
+              const devModeData = `2:${JSON.stringify([{ type: 'devmode_request_body', data: actualRequestBody }])}\n`;
+              controller.enqueue(encoder.encode(devModeData));
+            }
+            controller.enqueue(chunk);
+          }
+        });
+
+        // 通过 TransformStream 处理原始流
+        const modifiedStream = streamResponse.body?.pipeThrough(transformStream);
+
         // 克隆响应并添加自定义响应头（Response 对象是不可变的）
-        response = new Response(streamResponse.body, {
+        response = new Response(modifiedStream, {
           status: streamResponse.status,
           statusText: streamResponse.statusText,
           headers: new Headers({
             ...Object.fromEntries(streamResponse.headers.entries()),
             'X-Actual-Request-Body': requestBodyBase64,
             'X-Prompt-Messages-Count': String(modelMessages.length),
+            'Access-Control-Expose-Headers': 'X-Actual-Request-Body, X-Prompt-Messages-Count',
           }),
         });
       } else {
@@ -511,17 +530,34 @@ export async function POST(request: Request) {
         const stream = new ReadableStream({
           start(controller) {
             try {
-              // 发送消息数据
+              // 首先发送实际请求体数据（作为自定义 metadata）
+              // 使用 2: 前缀表示这是 data 类型的消息
+              const devModeData = `2:${JSON.stringify([{ type: 'devmode_request_body', data: actualRequestBody }])}\n`;
+              controller.enqueue(encoder.encode(devModeData));
+
+              // 发送消息数据（使用 text-delta 格式以确保兼容性）
               const messageData = `0:${JSON.stringify([uiMessage])}\n`;
               controller.enqueue(encoder.encode(messageData));
 
-              // 发送完成标记（finish reason）
-              const finishData = `d:{"finishReason":"stop"}\n`;
-              controller.enqueue(encoder.encode(finishData));
+              // 发送 usage 信息（如果有）
+              if (result.usage) {
+                const usageData = `d:{"finishReason":"${result.finishReason || 'stop'}","usage":${JSON.stringify(result.usage)}}\n`;
+                controller.enqueue(encoder.encode(usageData));
+              } else {
+                // 发送完成标记（finish reason）
+                const finishData = `d:{"finishReason":"${result.finishReason || 'stop'}"}\n`;
+                controller.enqueue(encoder.encode(finishData));
+              }
+
+              // 发送结束标记
+              controller.enqueue(encoder.encode('e:{"finishReason":"stop","isContinued":false}\n'));
 
               // 关闭流
               controller.close();
+
+              console.log('[Non-Stream] Stream completed and closed');
             } catch (error) {
+              console.error('[Non-Stream] Error in stream:', error);
               controller.error(error);
             }
           },
@@ -535,6 +571,7 @@ export async function POST(request: Request) {
             'X-Vercel-AI-Data-Stream': 'v1',
             'X-Actual-Request-Body': requestBodyBase64,
             'X-Prompt-Messages-Count': String(modelMessages.length),
+            'Access-Control-Expose-Headers': 'X-Actual-Request-Body, X-Prompt-Messages-Count',
           },
         });
 

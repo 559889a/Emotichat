@@ -65,7 +65,7 @@ export function DevModePanel({
   }
 
   return (
-    <div className="hidden lg:flex flex-col h-full min-h-0 border-l bg-background w-full lg:w-1/2">
+    <div className="hidden lg:flex flex-col min-h-0 border-l bg-background w-full lg:w-1/2 lg:h-full overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 border-b px-4 py-3">
         <div className="flex items-center justify-between">

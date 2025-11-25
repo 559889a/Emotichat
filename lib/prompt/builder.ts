@@ -275,6 +275,9 @@ function collectPromptItemsWithPreset(
 
 /**
  * 展开引用项为实际的提示词项
+ *
+ * 重要：为避免重复，优先使用 promptConfig.prompts（新版配置）
+ * 只有在 promptConfig.prompts 为空时才回退到 systemPrompt（旧版配置）
  */
 function expandReferenceItem(
   refItem: PromptItem,
@@ -287,9 +290,18 @@ function expandReferenceItem(
   switch (refItem.referenceType) {
     case 'character_prompts':
       // 引用：角色设定 - 角色的所有提示词
+      const charHasNewConfig = character.promptConfig?.prompts && character.promptConfig.prompts.length > 0;
       console.log('[expandReferenceItem] character_prompts - has systemPrompt:', !!character.systemPrompt);
-      console.log('[expandReferenceItem] character_prompts - has promptConfig.prompts:', !!character.promptConfig?.prompts, character.promptConfig?.prompts?.length || 0);
-      if (character.systemPrompt) {
+      console.log('[expandReferenceItem] character_prompts - has promptConfig.prompts:', charHasNewConfig, character.promptConfig?.prompts?.length || 0);
+
+      if (charHasNewConfig) {
+        // 优先使用新版配置，并只添加启用的提示词项
+        const enabledPrompts = character.promptConfig!.prompts.filter(p => p.enabled);
+        console.log('[expandReferenceItem] character_prompts - using new config, enabled prompts:', enabledPrompts.length);
+        items.push(...enabledPrompts.map(p => ({ ...p, order: refItem.order })));
+      } else if (character.systemPrompt) {
+        // 回退到旧版 systemPrompt
+        console.log('[expandReferenceItem] character_prompts - falling back to legacy systemPrompt');
         items.push({
           id: `ref-char-system-${character.id}`,
           order: refItem.order,
@@ -299,19 +311,24 @@ function expandReferenceItem(
           name: '角色系统提示词',
         });
       }
-      if (character.promptConfig?.prompts) {
-        items.push(...character.promptConfig.prompts.map(p => ({ ...p, order: refItem.order })));
-      }
       break;
 
     case 'user_prompts':
       // 引用：用户设定 - 使用激活的用户角色
       console.log('[expandReferenceItem] user_prompts - has activeUserProfile:', !!activeUserProfile);
       if (activeUserProfile) {
+        const userHasNewConfig = activeUserProfile.promptConfig?.prompts && activeUserProfile.promptConfig.prompts.length > 0;
         console.log('[expandReferenceItem] user_prompts - has systemPrompt:', !!activeUserProfile.systemPrompt);
-        console.log('[expandReferenceItem] user_prompts - has promptConfig.prompts:', !!activeUserProfile.promptConfig?.prompts, activeUserProfile.promptConfig?.prompts?.length || 0);
-        // 添加用户角色的系统提示词
-        if (activeUserProfile.systemPrompt) {
+        console.log('[expandReferenceItem] user_prompts - has promptConfig.prompts:', userHasNewConfig, activeUserProfile.promptConfig?.prompts?.length || 0);
+
+        if (userHasNewConfig) {
+          // 优先使用新版配置，并只添加启用的提示词项
+          const enabledPrompts = activeUserProfile.promptConfig!.prompts.filter(p => p.enabled);
+          console.log('[expandReferenceItem] user_prompts - using new config, enabled prompts:', enabledPrompts.length);
+          items.push(...enabledPrompts.map(p => ({ ...p, order: refItem.order })));
+        } else if (activeUserProfile.systemPrompt) {
+          // 回退到旧版 systemPrompt
+          console.log('[expandReferenceItem] user_prompts - falling back to legacy systemPrompt');
           items.push({
             id: `ref-user-system-${activeUserProfile.id}`,
             order: refItem.order,
@@ -320,10 +337,6 @@ function expandReferenceItem(
             role: 'system',
             name: '用户角色系统提示词',
           });
-        }
-        // 添加用户角色的自定义提示词
-        if (activeUserProfile.promptConfig?.prompts) {
-          items.push(...activeUserProfile.promptConfig.prompts.map(p => ({ ...p, order: refItem.order })));
         }
       }
       // 如果没有激活的用户角色，不添加任何内容（引用为空）

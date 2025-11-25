@@ -66,32 +66,91 @@ export function useMessages({
       apiKey = getStoredApiKey(globalConfig.providerType as AIProviderType);
     }
 
-    // 自定义fetch函数以捕获响应头
+    // 自定义fetch函数以拦截流并提取DevMode数据
     const customFetch = async (url: string, options: any) => {
-      console.log('[useMessages] Custom fetch called');
+      console.log('[useMessages] Custom fetch called for URL:', url);
       const response = await fetch(url, options);
 
-      // 读取响应头并触发自定义事件
-      try {
-        const actualRequestBodyHeader = response.headers.get('X-Actual-Request-Body');
-        if (actualRequestBodyHeader) {
-          console.log('[useMessages] Found X-Actual-Request-Body in fetch response');
-          const requestBodyJson = atob(actualRequestBodyHeader);
-          const actualRequestBody = JSON.parse(requestBodyJson);
-
-          // 立即触发事件
-          window.dispatchEvent(new CustomEvent('actualRequestBody', {
-            detail: {
-              requestBody: actualRequestBody,
-              conversationId
-            }
-          }));
-        }
-      } catch (err) {
-        console.error('[useMessages] Error reading response headers in custom fetch:', err);
+      // 如果没有响应体，直接返回
+      if (!response.body) {
+        console.log('[useMessages] No response body, returning original response');
+        return response;
       }
 
-      return response;
+      // 创建一个 TransformStream 来拦截流数据
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let devModeDataExtracted = false;
+
+      const transformStream = new TransformStream({
+        transform(chunk, controller) {
+          // 将原始数据传递给下游
+          controller.enqueue(chunk);
+
+          // 同时解析数据以提取 DevMode 信息
+          if (!devModeDataExtracted) {
+            try {
+              const text = decoder.decode(chunk, { stream: true });
+              buffer += text;
+
+              // 查找以 2: 开头的行（DevMode 数据）
+              const lines = buffer.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('2:')) {
+                  try {
+                    const jsonStr = line.substring(2);
+                    const dataArray = JSON.parse(jsonStr);
+
+                    // 查找 devmode_request_body 类型的数据
+                    for (const item of dataArray) {
+                      if (item.type === 'devmode_request_body' && item.data) {
+                        console.log('[useMessages] Found DevMode data in stream, messages count:', item.data.messages?.length);
+
+                        // 触发事件
+                        window.dispatchEvent(new CustomEvent('actualRequestBody', {
+                          detail: {
+                            requestBody: item.data,
+                            conversationId
+                          }
+                        }));
+
+                        devModeDataExtracted = true;
+                        break;
+                      }
+                    }
+                  } catch (parseErr) {
+                    // 解析失败，可能是不完整的数据，继续等待
+                    console.log('[useMessages] Failed to parse 2: line, might be incomplete');
+                  }
+                }
+              }
+
+              // 只保留最后一行（可能不完整）
+              if (lines.length > 1) {
+                buffer = lines[lines.length - 1];
+              }
+            } catch (err) {
+              console.error('[useMessages] Error processing stream chunk:', err);
+            }
+          }
+        },
+        flush() {
+          // 流结束时的处理
+          if (!devModeDataExtracted) {
+            console.warn('[useMessages] Stream ended without extracting DevMode data');
+          }
+        }
+      });
+
+      // 通过 TransformStream 处理原始流
+      const transformedStream = response.body.pipeThrough(transformStream);
+
+      // 创建新的 Response 对象，保留原始的 headers 和 status
+      return new Response(transformedStream, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
     };
 
     return new DefaultChatTransport({
@@ -125,44 +184,40 @@ export function useMessages({
       });
       console.error('Chat error:', err);
     },
-    onFinish: ({ response, message, finishReason }: any) => {
+    onFinish: async ({ message, finishReason }: any) => {
       console.log('[useMessages] onFinish called:', {
-        hasResponse: !!response,
         hasMessage: !!message,
         finishReason,
         messageContent: message?.content?.substring(0, 50)
       });
 
-      // 从响应头中读取服务端构建的实际请求体
-      try {
-        if (response && response.headers) {
-          console.log('[useMessages] Response has headers');
-          const actualRequestBodyHeader = response.headers.get('X-Actual-Request-Body');
-          if (actualRequestBodyHeader) {
-            console.log('[useMessages] Found X-Actual-Request-Body header');
-            // 从 Base64 解码
-            const requestBodyJson = atob(actualRequestBodyHeader);
-            const actualRequestBody = JSON.parse(requestBodyJson);
-            console.log('[Dev Mode] Actual request body:', {
-              model: actualRequestBody.model,
-              messagesCount: actualRequestBody.messages?.length || 0,
-              parameters: Object.keys(actualRequestBody).filter(k => k !== 'model' && k !== 'messages')
-            });
-            // 触发自定义事件，通知 chat page 更新 devmode 数据
-            window.dispatchEvent(new CustomEvent('actualRequestBody', {
-              detail: {
-                requestBody: actualRequestBody,
-                conversationId
-              }
-            }));
-          } else {
-            console.warn('[useMessages] X-Actual-Request-Body header not found');
+      // 重新获取消息列表，确保非流式传输的消息也能正确显示
+      // 这对于非流式传输特别重要，因为 useChat 可能无法自动更新 UI
+      if (conversationId) {
+        console.log('[useMessages] onFinish: Scheduling message refetch to ensure UI is up to date');
+        // 使用 setTimeout 确保服务端已经完成了消息的保存
+        setTimeout(async () => {
+          try {
+            console.log('[useMessages] Refetching messages from server...');
+            const fetchResponse = await fetch(`/api/conversations/${conversationId}/messages`);
+            const result = await fetchResponse.json();
+
+            if (fetchResponse.ok && result.success) {
+              // 转换后端消息格式为 AI SDK v5 格式
+              const loadedMessages = (result.data || []).map((m: Message) => ({
+                id: m.id,
+                role: m.role,
+                parts: [{ type: 'text', text: m.content }],
+              }));
+
+              console.log('[useMessages] Fetched messages:', loadedMessages.length);
+              // 直接更新消息列表，确保 UI 显示最新内容
+              setChatMessages(loadedMessages);
+            }
+          } catch (err) {
+            console.error('[useMessages] Failed to refetch messages in onFinish:', err);
           }
-        } else {
-          console.warn('[useMessages] onFinish: response or response.headers is null/undefined');
-        }
-      } catch (err) {
-        console.error('Failed to parse actual request body:', err);
+        }, 100); // 延迟100ms以确保服务端已保存消息
       }
     },
   });
@@ -511,20 +566,20 @@ export function useMessages({
   }, [conversationId, autoFetch, fetchMessages]);
 
   /**
-   * 监听 AI 响应完成，重新获取消息列表
-   * 这确保非流式输出也能正确显示
+   * 监听 AI 响应状态变化
+   * 注意：onFinish 回调已经处理了消息重新获取，这里不再重复调用
+   * 以避免多次 setChatMessages 导致的滚动位置重置问题
    */
   const prevStatusRef = useRef(status);
   useEffect(() => {
     const prevStatus = prevStatusRef.current;
     prevStatusRef.current = status;
 
-    // 当状态从 streaming 变为其他状态时，重新获取消息
+    // 仅记录状态变化，不重复获取消息
     if (prevStatus === 'streaming' && status !== 'streaming' && conversationId) {
-      console.log('[useMessages] Streaming finished, refetching messages');
-      fetchMessages();
+      console.log('[useMessages] Streaming finished, onFinish will handle message update');
     }
-  }, [status, conversationId, fetchMessages]);
+  }, [status, conversationId]);
 
   return {
     messages,
