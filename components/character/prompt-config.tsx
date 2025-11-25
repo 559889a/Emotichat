@@ -29,11 +29,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { PromptEditor } from '@/components/prompt/prompt-editor';
-import type { 
-  CharacterPromptConfig, 
-  PromptItem, 
-  ExampleDialogue,
-  PromptRole 
+import type {
+  CharacterPromptConfig,
+  PromptItem,
+  PromptRole
 } from '@/types/prompt';
 import { cn } from '@/lib/utils';
 
@@ -72,7 +71,6 @@ export function getDefaultPromptConfig(): CharacterPromptConfig {
         description: '定义角色的核心行为和性格',
       },
     ],
-    exampleDialogues: [],
     inheritFromPreset: undefined,
     overridePreset: false,
   };
@@ -87,13 +85,10 @@ function generateId(prefix: string = 'item'): string {
 
 /**
  * 角色提示词配置组件
- * 
+ *
  * 包含：
  * - 开场白编辑器（第0层楼）
  * - System Prompt 编辑
- * - Jailbreak Prompt（可选）
- * - NSFW Prompt（可选）
- * - Example Dialogs（Few-shot Learning）
  */
 export function PromptConfig({
   value,

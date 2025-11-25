@@ -70,39 +70,7 @@ function migrateOldCharacterToPromptConfig(character: Character): CharacterPromp
     };
     config.prompts.push(backgroundPrompt);
   }
-  
-  // 迁移 exampleDialogues
-  if (character.exampleDialogues && character.exampleDialogues.length > 0) {
-    config.exampleDialogues = character.exampleDialogues.map((content, index) => {
-      // 尝试解析旧的示例对话格式
-      // 假设旧格式是 "User: xxx\nAssistant: xxx" 或类似
-      const lines = content.split('\n');
-      let user = '';
-      let assistant = '';
-      
-      for (const line of lines) {
-        if (line.toLowerCase().startsWith('user:')) {
-          user = line.substring(5).trim();
-        } else if (line.toLowerCase().startsWith('assistant:') || line.toLowerCase().startsWith('ai:')) {
-          assistant = line.substring(line.indexOf(':') + 1).trim();
-        }
-      }
-      
-      // 如果解析失败，将整个内容作为 assistant
-      if (!user && !assistant) {
-        assistant = content;
-      }
-      
-      return {
-        id: `example-migrated-${Date.now()}-${index}`,
-        order: index,
-        user,
-        assistant,
-        enabled: true,
-      };
-    });
-  }
-  
+
   return config;
 }
 
@@ -233,9 +201,6 @@ export function CharacterForm({ open, onOpenChange, character, onSubmit, isUserP
         // 为了向后兼容，同时保存旧字段（从 promptConfig 提取）
         systemPrompt: finalPromptConfig.prompts.find(p => p.enabled && p.role === 'system')?.content || '',
         background: undefined, // 不再使用独立的 background 字段
-        exampleDialogues: finalPromptConfig.exampleDialogues?.filter(e => e.enabled).map(e =>
-          `User: ${e.user}\nAssistant: ${e.assistant}`
-        ),
 
         // 新的提示词配置
         promptConfig: finalPromptConfig,

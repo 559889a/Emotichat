@@ -40,7 +40,6 @@ export type {
   ContextLimitConfig,
   PromptPreset,
   CharacterPromptConfig,
-  ExampleDialogue,
   ConversationPromptConfig,
   PlaceholderType,
   Placeholder,

@@ -10,7 +10,6 @@ export interface Character {
   systemPrompt?: string;         // 系统提示词（已废弃，使用 promptConfig 代替）
   personality: string[];         // 性格特征标签，如 ["温柔", "善解人意", "幽默"]
   background?: string;           // 背景故事（可选，已废弃）
-  exampleDialogues?: string[];   // 示例对话（可选，已废弃）
 
   // 配置（向后兼容，已废弃）
   defaultModel?: string;         // 默认使用的模型 ID（已废弃，使用全局模型）

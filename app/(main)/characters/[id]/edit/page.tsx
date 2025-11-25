@@ -57,37 +57,6 @@ function migrateOldCharacterToPromptConfig(character: Character): CharacterPromp
     config.prompts.push(backgroundPrompt);
   }
 
-  // 迁移 exampleDialogues
-  if (character.exampleDialogues && character.exampleDialogues.length > 0) {
-    config.exampleDialogues = character.exampleDialogues.map((content, index) => {
-      // 尝试解析旧的示例对话格式
-      const lines = content.split('\n');
-      let user = '';
-      let assistant = '';
-
-      for (const line of lines) {
-        if (line.toLowerCase().startsWith('user:')) {
-          user = line.substring(5).trim();
-        } else if (line.toLowerCase().startsWith('assistant:') || line.toLowerCase().startsWith('ai:')) {
-          assistant = line.substring(line.indexOf(':') + 1).trim();
-        }
-      }
-
-      // 如果解析失败，将整个内容作为 assistant
-      if (!user && !assistant) {
-        assistant = content;
-      }
-
-      return {
-        id: `example-migrated-${Date.now()}-${index}`,
-        order: index,
-        user,
-        assistant,
-        enabled: true,
-      };
-    });
-  }
-
   return config;
 }
 

@@ -14,16 +14,15 @@ function ensurePromptConfig(character: Character): Character {
   if (character.promptConfig) {
     return character;
   }
-  
+
   // 从旧格式创建默认 promptConfig
   const defaultPromptConfig: CharacterPromptConfig = {
     openingMessage: '',
     prompts: [],
-    exampleDialogues: [],
     inheritFromPreset: undefined,
     overridePreset: false,
   };
-  
+
   // 迁移 systemPrompt
   if (character.systemPrompt) {
     defaultPromptConfig.prompts.push({
@@ -36,7 +35,7 @@ function ensurePromptConfig(character: Character): Character {
       description: '从旧版本自动迁移的系统提示词',
     });
   }
-  
+
   // 迁移 background
   if (character.background) {
     defaultPromptConfig.prompts.push({
@@ -49,39 +48,7 @@ function ensurePromptConfig(character: Character): Character {
       description: '从旧版本自动迁移的背景故事',
     });
   }
-  
-  // 迁移 exampleDialogues
-  if (character.exampleDialogues && character.exampleDialogues.length > 0) {
-    defaultPromptConfig.exampleDialogues = character.exampleDialogues.map((content, index) => {
-      // 尝试解析 "User: xxx\nAssistant: xxx" 格式
-      const lines = content.split('\n');
-      let user = '';
-      let assistant = '';
-      
-      for (const line of lines) {
-        const lowerLine = line.toLowerCase();
-        if (lowerLine.startsWith('user:')) {
-          user = line.substring(5).trim();
-        } else if (lowerLine.startsWith('assistant:') || lowerLine.startsWith('ai:')) {
-          assistant = line.substring(line.indexOf(':') + 1).trim();
-        }
-      }
-      
-      // 如果解析失败，将整个内容作为 assistant 回复
-      if (!user && !assistant) {
-        assistant = content;
-      }
-      
-      return {
-        id: `example-migrated-${character.id}-${index}`,
-        order: index,
-        user,
-        assistant,
-        enabled: true,
-      };
-    });
-  }
-  
+
   return {
     ...character,
     promptConfig: defaultPromptConfig,

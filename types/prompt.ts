@@ -207,27 +207,13 @@ export interface PromptPreset {
 export interface CharacterPromptConfig {
   // 开场白（第0层楼）
   openingMessage: string;     // AI的第一条消息
-  
+
   // 提示词序列
   prompts: PromptItem[];
-  
+
   // 继承设置
   inheritFromPreset?: string; // 继承的预设ID（可选）
   overridePreset?: boolean;   // 是否覆盖预设（默认false，合并）
-  
-  // 示例对话（Few-shot Learning）
-  exampleDialogues?: ExampleDialogue[];
-}
-
-/**
- * 示例对话接口（Few-shot）
- */
-export interface ExampleDialogue {
-  id: string;                 // 唯一标识符
-  order: number;              // 排序
-  user: string;               // 用户消息
-  assistant: string;          // AI回复
-  enabled: boolean;           // 是否启用
 }
 
 // ============================================================================
