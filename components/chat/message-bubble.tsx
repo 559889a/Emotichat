@@ -87,10 +87,12 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
   content,
   isStreaming,
   className,
+  thinkingTagPrepend,
 }: {
   content: string;
   isStreaming?: boolean;
   className?: string;
+  thinkingTagPrepend?: string;
 }) {
   const [displayedContent, setDisplayedContent] = useState(content);
   const bufferRef = useRef<string[]>([]);
@@ -187,7 +189,7 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
 
   return (
     <div className={cn("transition-opacity duration-100", className)}>
-      <MarkdownRenderer content={displayedContent} />
+      <MarkdownRenderer content={displayedContent} thinkingTagPrepend={thinkingTagPrepend} />
       {isStreaming && displayedContent.length > 0 && (
         <span className="inline-block w-0.5 h-4 bg-gradient-to-b from-pink-500 to-purple-500 animate-pulse ml-0.5 align-middle rounded-full" />
       )}
@@ -398,9 +400,13 @@ export const MessageBubble = memo(function MessageBubble({
                 <SmoothStreamingContent
                   content={message.content}
                   isStreaming={isStreaming}
+                  thinkingTagPrepend={message.thinkingTagPrepend}
                 />
               ) : (
-                <MarkdownRenderer content={message.content} />
+                <MarkdownRenderer
+                  content={message.content}
+                  thinkingTagPrepend={message.thinkingTagPrepend}
+                />
               )}
             </div>
           )}

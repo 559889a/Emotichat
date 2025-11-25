@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Settings, Key, Code } from 'lucide-react';
+import { Settings, Key, Code, Palette } from 'lucide-react';
 import {
   Tabs,
   TabsContent,
@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { ApiKeysManager } from '@/components/settings/api-keys';
 import { CustomProviderDialog } from '@/components/settings/custom-provider-dialog';
 import { GlobalEndpointSelector } from '@/components/settings/global-endpoint-selector';
+import { RenderingSettings } from '@/components/settings/rendering-settings';
 import { getDefaultDevModeSettings } from '@/types/dev-mode';
 import type { DevModeSettings } from '@/types/dev-mode';
 
@@ -60,10 +61,14 @@ export default function SettingsPage() {
 
       {/* 设置标签页 */}
       <Tabs defaultValue="api-keys" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="api-keys" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             API 密钥
+          </TabsTrigger>
+          <TabsTrigger value="rendering" className="flex items-center gap-2">
+            <Palette className="h-4 w-4" />
+            渲染
           </TabsTrigger>
           <TabsTrigger value="developer" className="flex items-center gap-2">
             <Code className="h-4 w-4" />
@@ -108,6 +113,11 @@ export default function SettingsPage() {
               <ApiKeysManager />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 渲染设置 */}
+        <TabsContent value="rendering" className="space-y-4">
+          <RenderingSettings />
         </TabsContent>
 
         {/* 开发者选项 */}

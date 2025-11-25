@@ -346,56 +346,67 @@ export async function addMessage(
 export async function updateMessage(
   conversationId: string,
   messageId: string,
-  content: string
+  content?: string,
+  metadata?: { thinkingTagPrepend?: string }
 ): Promise<Message> {
   try {
     await ensureConversationDir(conversationId);
     const messagesPath = path.join(DATA_DIR, conversationId, 'messages.json');
-    
+
     return await withFileLock(messagesPath, async () => {
       const messages = await getMessages(conversationId);
       const messageIndex = messages.findIndex(m => m.id === messageId);
-      
+
       if (messageIndex === -1) {
         throw new Error(`Message ${messageId} not found`);
       }
-      
+
       const message = messages[messageIndex];
       const now = new Date().toISOString();
-      
-      // 创建版本历史（如果还没有）
-      if (!message.versions) {
-        message.versions = [];
-        // 将当前内容作为第一个版本
+
+      // 如果提供了 content，更新内容并创建版本
+      if (content !== undefined) {
+        // 创建版本历史（如果还没有）
+        if (!message.versions) {
+          message.versions = [];
+          // 将当前内容作为第一个版本
+          message.versions.push({
+            id: crypto.randomUUID(),
+            content: message.content,
+            timestamp: message.createdAt,
+            isActive: false,
+            model: message.model,
+            tokenCount: message.tokenCount,
+          });
+        }
+
+        // 添加新版本
+        message.versions.forEach(v => v.isActive = false);
         message.versions.push({
           id: crypto.randomUUID(),
-          content: message.content,
-          timestamp: message.createdAt,
-          isActive: false,
+          content,
+          timestamp: now,
+          isActive: true,
           model: message.model,
           tokenCount: message.tokenCount,
         });
+
+        // 更新消息
+        message.content = content;
+        message.editedAt = now;
+        message.isEdited = true;
       }
-      
-      // 添加新版本
-      message.versions.forEach(v => v.isActive = false);
-      message.versions.push({
-        id: crypto.randomUUID(),
-        content,
-        timestamp: now,
-        isActive: true,
-        model: message.model,
-        tokenCount: message.tokenCount,
-      });
-      
-      // 更新消息
-      message.content = content;
-      message.editedAt = now;
-      message.isEdited = true;
-      
+
+      // 如果提供了 metadata，更新元数据字段（不影响版本历史）
+      if (metadata) {
+        if ('thinkingTagPrepend' in metadata) {
+          message.thinkingTagPrepend = metadata.thinkingTagPrepend;
+        }
+      }
+
       messages[messageIndex] = message;
       await fs.writeFile(messagesPath, JSON.stringify(messages, null, 2), 'utf-8');
-      
+
       return message;
     });
   } catch (error) {

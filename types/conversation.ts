@@ -19,11 +19,11 @@ export interface Message {
   role: MessageRole;             // 消息角色
   content: string;               // 消息内容（当前活动版本的内容）
   createdAt: string;             // ISO 8601 时间戳
-  
+
   // 可选元数据
   model?: string;                // 生成该消息的模型（仅 assistant）
   tokenCount?: number;           // token 数量
-  
+
   // Phase 1.4: 消息编辑与版本管理
   versions?: MessageVersion[];   // 消息的不同版本（包含编辑历史和重新生成的结果）
   parentId?: string;             // 父消息ID（用于分支对话）
@@ -31,6 +31,9 @@ export interface Message {
   editedAt?: string;             // 最后编辑时间（ISO 8601）
   isEdited?: boolean;            // 是否被编辑过
   regenerationCount?: number;    // 重新生成次数（用于统计）
+
+  // 思维链标签处理（LLM 辅助识别结果持久化）
+  thinkingTagPrepend?: string;   // 需要前置的思维链开头标签（如 "<think>"），null/undefined 表示不需要
 }
 
 // 模型配置（简化版，用于对话存储）

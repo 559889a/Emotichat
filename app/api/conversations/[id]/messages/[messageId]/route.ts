@@ -108,6 +108,19 @@ export async function PATCH(
       });
     }
 
+    // 处理设置思维链标签前缀（LLM 辅助识别结果）
+    if (action === 'set_thinking_tag') {
+      // thinkingTagPrepend 可以是字符串或 null/undefined（表示清除）
+      const { thinkingTagPrepend } = body;
+
+      const updatedMessage = await updateMessage(id, messageId, undefined, { thinkingTagPrepend });
+
+      return NextResponse.json({
+        success: true,
+        data: updatedMessage,
+      });
+    }
+
     return NextResponse.json(
       {
         success: false,
