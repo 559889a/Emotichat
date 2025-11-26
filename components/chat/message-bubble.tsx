@@ -1,12 +1,13 @@
 'use client';
 
 import { Message } from '@/types';
-import { useState, memo, useEffect, useRef } from 'react';
+import { useState, memo, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from './markdown-renderer';
 import { MessageActions } from './message-actions';
 import { MessageEditor } from './message-editor';
 import { VersionSelector } from './version-selector';
+import { emitThinkingBlockRendered } from '@/lib/chat/thinking-tag-watcher';
 
 /**
  * 响应计时器组件
@@ -90,6 +91,8 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
   thinkingTagPrepend,
   thinkingTagAppend,
   disableThinkingBlocks,
+  messageId,
+  onThinkingBlockRender,
 }: {
   content: string;
   isStreaming?: boolean;
@@ -97,6 +100,8 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
   thinkingTagPrepend?: string;
   thinkingTagAppend?: string;
   disableThinkingBlocks?: boolean;
+  messageId?: string;
+  onThinkingBlockRender?: () => void;
 }) {
   const [displayedContent, setDisplayedContent] = useState(content);
   const bufferRef = useRef<string[]>([]);
@@ -198,6 +203,8 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
         thinkingTagPrepend={thinkingTagPrepend}
         thinkingTagAppend={thinkingTagAppend}
         disableThinkingBlocks={disableThinkingBlocks}
+        messageId={messageId}
+        onThinkingBlockRender={onThinkingBlockRender}
       />
       {isStreaming && displayedContent.length > 0 && (
         <span className="inline-block w-0.5 h-4 bg-gradient-to-b from-pink-500 to-purple-500 animate-pulse ml-0.5 align-middle rounded-full" />
@@ -209,6 +216,7 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
 interface MessageBubbleProps {
   message: Message;
   messageIndex?: number;
+  conversationId?: string;
   characterName?: string;
   characterAvatar?: string;
   isStreaming?: boolean;
@@ -228,6 +236,7 @@ interface MessageBubbleProps {
 export const MessageBubble = memo(function MessageBubble({
   message,
   messageIndex,
+  conversationId,
   characterName,
   characterAvatar,
   isStreaming = false,
@@ -285,6 +294,14 @@ export const MessageBubble = memo(function MessageBubble({
 
   const isUser = message.role === 'user';
   const floorNumber = (messageIndex ?? 0) + 1;
+
+  const handleThinkingBlockRender = useCallback(() => {
+    if (isUser) return;
+    emitThinkingBlockRendered({
+      messageId: message.id,
+      conversationId,
+    });
+  }, [conversationId, isUser, message.id]);
 
   // 获取模型简称
   const getModelBadge = (model: string) => {
@@ -423,6 +440,8 @@ export const MessageBubble = memo(function MessageBubble({
                   thinkingTagPrepend={!isUser ? message.thinkingTagPrepend : undefined}
                   thinkingTagAppend={!isUser ? message.thinkingTagAppend : undefined}
                   disableThinkingBlocks={isUser}
+                  messageId={message.id}
+                  onThinkingBlockRender={!isUser ? handleThinkingBlockRender : undefined}
                 />
               ) : (
                 <MarkdownRenderer
@@ -431,6 +450,8 @@ export const MessageBubble = memo(function MessageBubble({
                   thinkingTagPrepend={!isUser ? message.thinkingTagPrepend : undefined}
                   thinkingTagAppend={!isUser ? message.thinkingTagAppend : undefined}
                   disableThinkingBlocks={isUser}
+                  messageId={message.id}
+                  onThinkingBlockRender={!isUser ? handleThinkingBlockRender : undefined}
                 />
               )}
             </div>

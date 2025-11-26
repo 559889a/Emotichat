@@ -513,6 +513,7 @@ function ChatPageContent() {
             {hasMessages ? (
               <MessageList
                 messages={messages}
+                conversationId={conversationId || undefined}
                 characterName={currentCharacter?.name}
                 characterAvatar={characterAvatar}
                 loading={messagesLoading}

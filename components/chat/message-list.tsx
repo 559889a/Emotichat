@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 interface MessageListProps {
   messages: Message[];
+  conversationId?: string;
   characterName?: string;
   characterAvatar?: string;
   loading?: boolean;
@@ -87,6 +88,7 @@ function LoadingTimer({
 
 export function MessageList({
   messages,
+  conversationId,
   characterName,
   characterAvatar,
   loading = false,
@@ -230,6 +232,7 @@ export function MessageList({
               key={message.id}
               message={message}
               messageIndex={index}
+              conversationId={conversationId}
               characterName={message.role === 'assistant' ? characterName : undefined}
               characterAvatar={message.role === 'assistant' ? characterAvatar : undefined}
               isStreaming={isStreamingMessage}

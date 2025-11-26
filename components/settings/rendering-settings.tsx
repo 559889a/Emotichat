@@ -337,6 +337,13 @@ export function RenderingSettings() {
     message: string;
   } | null>(null);
 
+  // 强制关闭 LLM 辅助识别功能，等待维护
+  React.useEffect(() => {
+    if (thinkingLLMAssist) {
+      setThinkingLLMAssist(false);
+    }
+  }, [thinkingLLMAssist, setThinkingLLMAssist]);
+
   // 测试 LLM 连接并拉取模型
   const handleTestConnection = async () => {
     if (!thinkingLLMEndpoint || !thinkingLLMApiKey) {
@@ -488,152 +495,21 @@ export function RenderingSettings() {
                     </p>
                   </div>
                   <Switch
-                    checked={thinkingLLMAssist}
-                    onCheckedChange={setThinkingLLMAssist}
+                    checked={false}
+                    disabled
+                    aria-disabled
+                    onCheckedChange={() => {}}
                   />
                 </div>
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-50">
+                  <AlertDescription>
+                    思维链 LLM 辅助识别已暂时下线（功能存在严重问题，等待维护），开关已锁定。
+                  </AlertDescription>
+                </Alert>
 
-                {thinkingLLMAssist && (
-                  <div className="space-y-4 pt-2">
-                    {/* 协议类型 */}
-                    <div className="space-y-2">
-                      <Label>协议类型</Label>
-                      <Select
-                        value={thinkingLLMProtocol}
-                        onValueChange={(value: 'openai' | 'gemini' | 'anthropic') =>
-                          setThinkingLLMProtocol(value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="openai">OpenAI 兼容</SelectItem>
-                          <SelectItem value="gemini">Gemini 兼容</SelectItem>
-                          <SelectItem value="anthropic">Claude 兼容</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        {protocolDescriptions[thinkingLLMProtocol]}
-                      </p>
-                    </div>
-
-                    {/* Base URL */}
-                    <div className="space-y-2">
-                      <Label>API 端点地址</Label>
-                      <Input
-                        value={thinkingLLMEndpoint}
-                        onChange={(e) => setThinkingLLMEndpoint(e.target.value)}
-                        placeholder="https://api.example.com"
-                        className="font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        系统会根据协议类型自动添加请求路径
-                      </p>
-                    </div>
-
-                    {/* API Key */}
-                    <div className="space-y-2">
-                      <Label>API Key</Label>
-                      <Input
-                        type="password"
-                        value={thinkingLLMApiKey}
-                        onChange={(e) => setThinkingLLMApiKey(e.target.value)}
-                        placeholder="输入 API Key"
-                        className="font-mono text-sm"
-                      />
-                    </div>
-
-                    {/* 测试连接按钮 */}
-                    <Button
-                      variant="outline"
-                      onClick={handleTestConnection}
-                      disabled={isTesting || !thinkingLLMEndpoint || !thinkingLLMApiKey}
-                      className="w-full"
-                    >
-                      {isTesting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          {isFetchingModels ? '正在拉取模型...' : '测试中...'}
-                        </>
-                      ) : (
-                        '测试连接并拉取模型'
-                      )}
-                    </Button>
-
-                    {/* 选择模型 */}
-                    <div className="space-y-2">
-                      <Label>选择模型</Label>
-                      {fetchedModels.length > 0 ? (
-                        <Select
-                          value={thinkingLLMModel}
-                          onValueChange={(value) => {
-                            if (value === '__custom__') {
-                              setThinkingLLMModel('');
-                            } else {
-                              handleSelectModel(value);
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="从列表中选择模型" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__custom__">手动输入...</SelectItem>
-                            {fetchedModels.map((model) => (
-                              <SelectItem key={model} value={model}>
-                                {model}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          点击上方按钮拉取可用模型列表
-                        </p>
-                      )}
-                    </div>
-
-                    {/* 模型名称（手动输入） */}
-                    <div className="space-y-2">
-                      <Label>模型名称</Label>
-                      <Input
-                        value={thinkingLLMModel}
-                        onChange={(e) => setThinkingLLMModel(e.target.value)}
-                        placeholder={
-                          thinkingLLMProtocol === 'openai' ? 'gpt-4o-mini' :
-                          thinkingLLMProtocol === 'gemini' ? 'gemini-1.5-flash' :
-                          'claude-3-haiku-20240307'
-                        }
-                        className="font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        建议使用快速、低成本的模型（此功能调用频繁）
-                      </p>
-                    </div>
-
-                    {/* 测试结果 */}
-                    {testResult && (
-                      <Alert variant={testResult.success ? 'default' : 'destructive'}>
-                        <div className="flex items-center gap-2">
-                          {testResult.success ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <X className="h-4 w-4" />
-                          )}
-                          <AlertDescription>{testResult.message}</AlertDescription>
-                        </div>
-                      </Alert>
-                    )}
-
-                    {/* 说明 */}
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3">
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
-                        <strong>说明：</strong> 当消息内容完全没有思维链标签时，LLM 会判断内容是否为 AI 的内部思考过程（推理、分析等），如果是则自动包裹标签以便折叠显示。
-                      </p>
-                    </div>
-                  </div>
-                )}
+                {/* 功能下线期间隐藏配置表单
+                {thinkingLLMAssist && (...)}
+                */}
               </div>
 
               {/* 标签列表 */}

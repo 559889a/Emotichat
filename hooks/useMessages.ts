@@ -9,7 +9,9 @@ import { getStoredApiKey } from '@/components/settings/api-keys';
 import type { AIProviderType } from '@/lib/ai/models';
 import { toast } from 'sonner';
 import { useUIPreferences } from '@/stores/uiPreferences';
-import { detectAndFixThinkingTags, hasCompleteThinkingTags } from '@/lib/utils/thinking-tag-assist';
+import { addThinkingBlockRenderedListener } from '@/lib/chat/thinking-tag-watcher';
+
+const THINKING_ASSIST_DISABLED = true;
 
 interface UseMessagesOptions {
   conversationId: string | null;
@@ -84,6 +86,13 @@ export function useMessages({
 
   // 存储服务端消息的元数据（包括 thinkingTagPrepend）
   const serverMessagesRef = useRef<Map<string, Message>>(new Map());
+  const thinkingBlockRenderedRef = useRef<Set<string>>(new Set());
+  const thinkingPatchInFlightRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    thinkingBlockRenderedRef.current.clear();
+    thinkingPatchInFlightRef.current.clear();
+  }, [conversationId]);
 
   // 监听全局模型配置的变化
   useEffect(() => {
@@ -210,6 +219,98 @@ export function useMessages({
     });
   }, [conversationId, globalConfig]);
 
+  const persistThinkingTagState = useCallback(
+    async (message: Message, updates?: { prependTag?: string; appendTag?: string }) => {
+      const currentConversationId = conversationIdRef.current;
+      if (!currentConversationId) return;
+
+      const targetMsg = serverMessagesRef.current.get(message.id) || message;
+
+      if (targetMsg.role !== 'assistant') {
+        return;
+      }
+
+      if (targetMsg.thinkingTagProcessed && !updates?.prependTag && !updates?.appendTag) {
+        thinkingBlockRenderedRef.current.add(message.id);
+        return;
+      }
+
+      if (thinkingPatchInFlightRef.current.has(message.id)) {
+        return;
+      }
+
+      thinkingPatchInFlightRef.current.add(message.id);
+
+      try {
+        const patchResponse = await fetch(
+          `/api/conversations/${currentConversationId}/messages/${message.id}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'set_thinking_tag',
+              thinkingTagPrepend: updates?.prependTag ?? targetMsg.thinkingTagPrepend ?? '',
+              thinkingTagAppend: updates?.appendTag ?? targetMsg.thinkingTagAppend ?? '',
+              thinkingTagProcessed: true,
+            }),
+          }
+        );
+
+        if (!patchResponse.ok) {
+          console.warn('[useMessages] Failed to persist thinking tag state:', patchResponse.status);
+        } else {
+          const updatedMsg: Message = {
+            ...targetMsg,
+            thinkingTagPrepend: updates?.prependTag ?? targetMsg.thinkingTagPrepend ?? '',
+            thinkingTagAppend: updates?.appendTag ?? targetMsg.thinkingTagAppend ?? '',
+            thinkingTagProcessed: true,
+          };
+          serverMessagesRef.current.set(message.id, updatedMsg);
+          thinkingBlockRenderedRef.current.add(message.id);
+        }
+      } catch (err) {
+        console.error('[useMessages] Failed to save thinking tag state:', err);
+      } finally {
+        thinkingPatchInFlightRef.current.delete(message.id);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (THINKING_ASSIST_DISABLED) {
+      return;
+    }
+
+    const unsubscribe = addThinkingBlockRenderedListener(
+      ({ messageId, conversationId: eventConversationId }) => {
+        const currentConversationId = conversationIdRef.current;
+        if (!messageId) return;
+        if (
+          eventConversationId &&
+          currentConversationId &&
+          eventConversationId !== currentConversationId
+        ) {
+          return;
+        }
+        const targetMsg = serverMessagesRef.current.get(messageId);
+        if (!targetMsg || targetMsg.role !== 'assistant') {
+          return;
+        }
+
+        thinkingBlockRenderedRef.current.add(messageId);
+
+        if (!targetMsg.thinkingTagProcessed) {
+          persistThinkingTagState(targetMsg);
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [persistThinkingTagState]);
+
   // 使用 Vercel AI SDK useChat hook (v5.x)
   const {
     messages: chatMessages,
@@ -284,127 +385,16 @@ export function useMessages({
                 contentLength: lastAssistantMsg?.content?.length,
               });
 
+
               if (
                 lastAssistantMsg &&
-                !lastAssistantMsg.thinkingTagProcessed // 未处理过
+                !lastAssistantMsg.thinkingTagProcessed
               ) {
-                const tagsConfig = currentConfig.thinkingTags.map((t) => ({
-                  openTag: t.openTag,
-                  closeTag: t.closeTag,
-                  enabled: t.enabled,
-                }));
-
-                // 第一步：检测是否有完整配对的思维链标签
-                const hasCompleteTags = hasCompleteThinkingTags(lastAssistantMsg.content, tagsConfig);
-
-                console.log('[useMessages] Checking thinking tags:', {
-                  messageId: lastAssistantMsg.id,
-                  hasCompleteTags,
-                  enabledTags: tagsConfig.filter((t) => t.enabled).map((t) => t.openTag),
+                console.warn('[useMessages] Thinking LLM assist is disabled, marking message as processed without changes');
+                await persistThinkingTagState(lastAssistantMsg, {
+                  prependTag: '',
+                  appendTag: '',
                 });
-
-                if (hasCompleteTags) {
-                  // 有完整的思维链标签，直接标记为已处理，不需要调用 API
-                  console.log('[useMessages] Complete thinking tags detected, marking as processed without API call');
-                  try {
-                    const patchResponse = await fetch(
-                      `/api/conversations/${currentConversationId}/messages/${lastAssistantMsg.id}`,
-                      {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'set_thinking_tag',
-                          thinkingTagPrepend: '',
-                          thinkingTagAppend: '',
-                          thinkingTagProcessed: true, // 标记为已处理
-                        }),
-                      }
-                    );
-                    console.log('[useMessages] PATCH response status (complete tags):', patchResponse.status);
-
-                    // 更新本地 ref 以反映已处理状态
-                    const updatedMsg = { ...lastAssistantMsg, thinkingTagProcessed: true };
-                    serverMessagesRef.current.set(lastAssistantMsg.id, updatedMsg);
-                  } catch (err) {
-                    console.error('[useMessages] Failed to mark thinking tag as processed:', err);
-                  }
-                } else {
-                  // 没有完整标签，调用 detectAndFixThinkingTags 进行修复
-                  console.log('[useMessages] Incomplete or missing thinking tags, calling detectAndFixThinkingTags');
-                  console.log('[useMessages] Using thinking tags config:', {
-                    tagsCount: currentConfig.thinkingTags?.length,
-                    enabledTags: tagsConfig.filter((t) => t.enabled).map((t) => t.openTag),
-                    llmAssist: currentConfig.thinkingLLMAssist,
-                  });
-
-                  // 异步处理，不阻塞 UI 更新
-                  detectAndFixThinkingTags(
-                    lastAssistantMsg.content,
-                    tagsConfig,
-                    {
-                      enabled: currentConfig.thinkingLLMAssist,
-                      protocol: currentConfig.thinkingLLMProtocol,
-                      endpoint: currentConfig.thinkingLLMEndpoint,
-                      apiKey: currentConfig.thinkingLLMApiKey,
-                      model: currentConfig.thinkingLLMModel,
-                    }
-                  ).then(async (result) => {
-                    console.log('[useMessages] Thinking tag fix result:', result);
-
-                    // 无论是否需要修复，都标记为已处理，避免重复调用
-                    try {
-                      const patchResponse = await fetch(
-                        `/api/conversations/${currentConversationId}/messages/${lastAssistantMsg.id}`,
-                        {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'set_thinking_tag',
-                            thinkingTagPrepend: result.prependTag || '',
-                            thinkingTagAppend: result.appendTag || '',
-                            thinkingTagProcessed: true, // 标记为已处理
-                          }),
-                        }
-                      );
-                      console.log('[useMessages] PATCH response status:', patchResponse.status);
-
-                      // 更新本地 ref 以反映已处理状态
-                      const updatedMsg = {
-                        ...lastAssistantMsg,
-                        thinkingTagPrepend: result.prependTag || '',
-                        thinkingTagAppend: result.appendTag || '',
-                        thinkingTagProcessed: true,
-                      };
-                      serverMessagesRef.current.set(lastAssistantMsg.id, updatedMsg);
-
-                      // 如果需要修复，重新获取消息以更新 UI
-                      if (result.needsFix) {
-                        console.log('[useMessages] Refreshing messages after tag fix');
-                        const refreshResponse = await fetch(
-                          `/api/conversations/${currentConversationId}/messages`
-                        );
-                        const refreshResult = await refreshResponse.json();
-                        if (refreshResponse.ok && refreshResult.success) {
-                          const refreshedServerMessages: Message[] = refreshResult.data || [];
-                          // 更新 ref
-                          refreshedServerMessages.forEach((m) =>
-                            serverMessagesRef.current.set(m.id, m)
-                          );
-                          const refreshedMessages = refreshedServerMessages.map(
-                            (m: Message) => ({
-                              id: m.id,
-                              role: m.role,
-                              parts: [{ type: 'text' as const, text: m.content }],
-                            })
-                          );
-                          setChatMessages(refreshedMessages);
-                        }
-                      }
-                    } catch (err) {
-                      console.error('[useMessages] Failed to save thinking tag:', err);
-                    }
-                  });
-                }
               }
             }
           } catch (err) {

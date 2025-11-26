@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -17,6 +17,8 @@ interface MarkdownRendererProps {
   thinkingTagPrepend?: string; // 从消息持久化数据传入，需要前置的开头标签
   thinkingTagAppend?: string;  // 从消息持久化数据传入，需要追加的闭合标签
   disableThinkingBlocks?: boolean; // 禁用思维链折叠功能（用于用户消息）
+  messageId?: string;
+  onThinkingBlockRender?: () => void;
 }
 
 // 思维链折叠块组件
@@ -267,7 +269,15 @@ function processChildren(
 /**
  * Markdown 渲染器组件
  */
-export function MarkdownRenderer({ content, className = '', thinkingTagPrepend, thinkingTagAppend, disableThinkingBlocks = false }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  className = '',
+  thinkingTagPrepend,
+  thinkingTagAppend,
+  disableThinkingBlocks = false,
+  messageId,
+  onThinkingBlockRender,
+}: MarkdownRendererProps) {
   const {
     thinkingCollapsed,
     thinkingAutoComplete,
@@ -287,6 +297,19 @@ export function MarkdownRenderer({ content, className = '', thinkingTagPrepend, 
     if (thinkingTagAppend) {
       contentToRender = contentToRender + thinkingTagAppend;
     }
+  } else {
+    // 用户消息禁用思维链：转义思维链标签，避免被渲染为折叠块或高亮
+    thinkingTags
+      .filter((tag) => tag.enabled)
+      .forEach((tag) => {
+        const escapedOpen = tag.openTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedClose = tag.closeTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const openRegex = new RegExp(escapedOpen, 'g');
+        const closeRegex = new RegExp(escapedClose, 'g');
+        contentToRender = contentToRender
+          .replace(openRegex, tag.openTag.replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+          .replace(closeRegex, tag.closeTag.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+      });
   }
 
   // 预处理思维链内容（仅当未禁用时）
@@ -332,6 +355,23 @@ export function MarkdownRenderer({ content, className = '', thinkingTagPrepend, 
   }, [processedContent, thinkingBlocks]);
 
   // 包装组件以应用特殊字段规则
+  const hasReportedThinkingBlockRef = useRef(false);
+
+  useEffect(() => {
+    hasReportedThinkingBlockRef.current = false;
+  }, [messageId]);
+
+  useEffect(() => {
+    if (disableThinkingBlocks || !onThinkingBlockRender || hasReportedThinkingBlockRef.current) {
+      return;
+    }
+    const hasThinkingBlock = contentParts.some((part) => part.type === 'thinking');
+    if (hasThinkingBlock) {
+      hasReportedThinkingBlockRef.current = true;
+      onThinkingBlockRender();
+    }
+  }, [contentParts, onThinkingBlockRender, disableThinkingBlocks]);
+
   const wrapWithSpecialFields = (Component: React.ComponentType<any>) => {
     return ({ children, ...props }: any) => {
       const processedChildren = processChildren(children, specialFieldRules);
@@ -342,6 +382,9 @@ export function MarkdownRenderer({ content, className = '', thinkingTagPrepend, 
   // 创建思维链标签的组件映射
   const thinkingTagComponents = useMemo(() => {
     const tagComponents: Record<string, React.ComponentType<any>> = {};
+    if (disableThinkingBlocks) {
+      return tagComponents;
+    }
 
     // 提取所有唯一的标签名
     const tagNames = new Set<string>();
