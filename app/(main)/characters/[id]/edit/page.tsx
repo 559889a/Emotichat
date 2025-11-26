@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, User, Sparkles, Save, X, Info, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, User, Sparkles, Save, X, Info, Loader2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useCharacters } from '@/hooks/useCharacters';
 import type { Character, CharacterAdvancedFeatures, UpdateCharacterInput } from '@/types/character';
 import type { CharacterPromptConfig } from '@/types/prompt';
@@ -17,19 +17,13 @@ import { Switch } from '@/components/ui/switch';
 import { PromptConfig, getDefaultPromptConfig } from '@/components/character/prompt-config';
 import ErrorBoundary from '@/components/layout/error-boundary';
 
-/**
- * 向后兼容：从旧角色数据迁移到新的提示词配置
- */
 function migrateOldCharacterToPromptConfig(character: Character): CharacterPromptConfig {
-  // 如果已经有新的 promptConfig，直接返回
   if (character.promptConfig) {
     return character.promptConfig;
   }
 
-  // 从旧格式迁移
   const config = getDefaultPromptConfig();
 
-  // 迁移 systemPrompt
   if (character.systemPrompt) {
     config.prompts = [
       {
@@ -44,7 +38,6 @@ function migrateOldCharacterToPromptConfig(character: Character): CharacterPromp
     ];
   }
 
-  // 迁移 background（如果有的话，合并到 system prompt）
   if (character.background) {
     const backgroundPrompt = {
       id: `background-migrated-${Date.now()}`,
@@ -67,51 +60,42 @@ export default function EditCharacterPage() {
   const characterId = params.id as string;
   const { characters, updateCharacter } = useCharacters();
 
-  // 角色数据
   const [character, setCharacter] = useState<Character | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 基本信息状态
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     avatar: '',
   });
 
-  // 提示词配置状态
   const [promptConfig, setPromptConfig] = useState<CharacterPromptConfig>(getDefaultPromptConfig());
 
-  // 高级功能状态
   const [advancedFeatures, setAdvancedFeatures] = useState<CharacterAdvancedFeatures>({
     enableFunctionCalling: false,
     enableMcp: false,
     enableJavascriptRuntime: false,
   });
 
-  // UI 状态
   const [personalityInput, setPersonalityInput] = useState('');
   const [personality, setPersonality] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
-  // 加载角色数据
   useEffect(() => {
-    const foundCharacter = characters.find(c => c.id === characterId);
+    const foundCharacter = characters.find((c) => c.id === characterId);
     if (foundCharacter) {
       setCharacter(foundCharacter);
 
-      // 基本信息
       setFormData({
         name: foundCharacter.name,
         description: foundCharacter.description,
         avatar: foundCharacter.avatar || '',
       });
 
-      // 性格标签
       setPersonality(foundCharacter.personality || []);
 
-      // 提示词配置（带向后兼容迁移）
       setPromptConfig(migrateOldCharacterToPromptConfig(foundCharacter));
       setAdvancedFeatures(
         foundCharacter.advancedFeatures || {
@@ -123,16 +107,14 @@ export default function EditCharacterPage() {
 
       setLoading(false);
     } else if (characters.length > 0) {
-      // 角色列表已加载但未找到角色，重定向
       router.push('/characters');
     }
   }, [characterId, characters, router]);
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // 清除该字段的错误
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
@@ -145,14 +127,14 @@ export default function EditCharacterPage() {
       e.preventDefault();
       const tag = personalityInput.trim();
       if (!personality.includes(tag)) {
-        setPersonality(prev => [...prev, tag]);
+        setPersonality((prev) => [...prev, tag]);
       }
       setPersonalityInput('');
     }
   };
 
   const handleRemovePersonality = (tag: string) => {
-    setPersonality(prev => prev.filter(t => t !== tag));
+    setPersonality((prev) => prev.filter((t) => t !== tag));
   };
 
   const validateForm = (): boolean => {
@@ -165,8 +147,7 @@ export default function EditCharacterPage() {
       newErrors.description = '请输入角色描述';
     }
 
-    // 检查是否有至少一个启用的提示词
-    const enabledPrompts = promptConfig.prompts.filter(p => p.enabled);
+    const enabledPrompts = promptConfig.prompts.filter((p) => p.enabled);
     if (enabledPrompts.length === 0 && !promptConfig.openingMessage) {
       newErrors.prompt = '请至少添加一条提示词或开场白';
     }
@@ -179,7 +160,6 @@ export default function EditCharacterPage() {
     e.preventDefault();
 
     if (!validateForm()) {
-      // 如果有验证错误，切换到相应的 Tab
       if (errors.name || errors.description) {
         setActiveTab('basic');
       } else if (errors.prompt) {
@@ -190,17 +170,12 @@ export default function EditCharacterPage() {
 
     setIsSubmitting(true);
     try {
-      // 构建提交数据
       const submitData: UpdateCharacterInput = {
         name: formData.name,
         description: formData.description,
         avatar: formData.avatar || undefined,
         personality,
-
-        // 使用统一的提示词配置系统
         promptConfig,
-
-        // 保留原有值
         memoryEnabled: character?.memoryEnabled ?? true,
         temperature: character?.temperature ?? 0.7,
         defaultModel: character?.defaultModel,
@@ -220,7 +195,6 @@ export default function EditCharacterPage() {
     router.push('/characters');
   };
 
-  // 加载状态
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -232,7 +206,6 @@ export default function EditCharacterPage() {
     );
   }
 
-  // 角色不存在
   if (!character) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -253,7 +226,6 @@ export default function EditCharacterPage() {
   return (
     <ErrorBoundary>
       <div className="h-full flex flex-col overflow-hidden bg-background">
-        {/* 顶部导航栏 */}
         <div className="border-b bg-card">
           <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
             <div className="flex items-center justify-between gap-4">
@@ -293,7 +265,7 @@ export default function EditCharacterPage() {
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      保存更改
+                      保存修改
                     </>
                   )}
                 </Button>
@@ -302,7 +274,6 @@ export default function EditCharacterPage() {
           </div>
         </div>
 
-        {/* 主内容区域 */}
         <div className="flex-1 overflow-hidden">
           <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 h-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
@@ -315,7 +286,7 @@ export default function EditCharacterPage() {
                 <TabsTrigger value="prompts" className="gap-1.5">
                   <Sparkles className="h-4 w-4" />
                   <span className="hidden sm:inline">提示词配置</span>
-                  <span className="sm:hidden">提示词</span>
+                  <span className="sm:hidden">提示</span>
                 </TabsTrigger>
                 <TabsTrigger value="advanced" className="gap-1.5">
                   <Info className="h-4 w-4" />
@@ -326,7 +297,6 @@ export default function EditCharacterPage() {
 
               <ScrollArea className="flex-1">
                 <div className="max-w-4xl mx-auto">
-                  {/* 基本信息 Tab */}
                   <TabsContent value="basic" className="mt-0 space-y-6 pb-6">
                     <div className="space-y-2">
                       <Label htmlFor="name">
@@ -339,12 +309,10 @@ export default function EditCharacterPage() {
                         placeholder="例如：小艾"
                         className={errors.name ? 'border-destructive' : ''}
                       />
-                      {errors.name && (
-                        <p className="text-sm text-destructive">{errors.name}</p>
-                      )}
+                      {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Info className="h-3 w-3" />
-                        角色名称仅用于 UI 显示，不会发送给 AI
+                        角色名称仅用于 UI 展示，不会发送给 AI
                       </p>
                     </div>
 
@@ -356,13 +324,11 @@ export default function EditCharacterPage() {
                         id="description"
                         value={formData.description}
                         onChange={(e) => handleInputChange('description', e.target.value)}
-                        placeholder="简短描述这个角色的特点..."
+                        placeholder="描述角色的特点..."
                         rows={3}
                         className={errors.description ? 'border-destructive' : ''}
                       />
-                      {errors.description && (
-                        <p className="text-sm text-destructive">{errors.description}</p>
-                      )}
+                      {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Info className="h-3 w-3" />
                         角色描述仅用于用户备注，不会发送给 AI
@@ -377,9 +343,7 @@ export default function EditCharacterPage() {
                         onChange={(e) => handleInputChange('avatar', e.target.value)}
                         placeholder="https://example.com/avatar.png"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        留空则使用首字母作为头像
-                      </p>
+                      <p className="text-xs text-muted-foreground">未填写则使用名称首字母作为头像</p>
                     </div>
 
                     <div className="space-y-2">
@@ -389,7 +353,7 @@ export default function EditCharacterPage() {
                         value={personalityInput}
                         onChange={(e) => setPersonalityInput(e.target.value)}
                         onKeyDown={handleAddPersonality}
-                        placeholder="输入标签后按回车添加（例如：温柔、幽默）"
+                        placeholder="输入标签后按回车，例如：温柔、呆萌"
                       />
                       {personality.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
@@ -409,69 +373,78 @@ export default function EditCharacterPage() {
                       )}
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Info className="h-3 w-3" />
-                        性格标签仅用于 UI 显示和分类
+                        性格标签用于 UI 展示和过滤
                       </p>
                     </div>
                   </TabsContent>
 
-                  {/* 提示词配置 Tab */}
                   <TabsContent value="prompts" className="mt-0 pb-6">
                     {errors.prompt && (
                       <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
                         {errors.prompt}
                       </div>
                     )}
-                    <PromptConfig
-                      value={promptConfig}
-                      onChange={setPromptConfig}
-                      characterName={formData.name || '角色'}
-                    />
+                    <PromptConfig value={promptConfig} onChange={setPromptConfig} characterName={formData.name || '角色'} />
                   </TabsContent>
 
-                  {/* 高级功能设置 */}
                   <TabsContent value="advanced" className="mt-0 pb-6 space-y-4">
-                    <div className="rounded-lg border p-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="font-medium">函数调用框架</p>
-                        <p className="text-sm text-muted-foreground">为该角色开启工具调用能力。</p>
-                      </div>
-                      <Switch
-                        checked={advancedFeatures.enableFunctionCalling || false}
-                        onCheckedChange={(checked) =>
-                          setAdvancedFeatures((prev) => ({ ...prev, enableFunctionCalling: checked }))
-                        }
-                      />
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                      <span>高级功能开发中，角色配置暂不可用。</span>
                     </div>
 
-                    <div className="rounded-lg border p-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="font-medium">MCP 集成</p>
-                        <p className="text-sm text-muted-foreground">控制该角色是否可使用 MCP 端点。</p>
+                    <div className="relative">
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/75 backdrop-blur-sm px-4 text-center">
+                        <div className="rounded-md border border-dashed border-muted-foreground/40 bg-card/90 px-4 py-3 text-sm text-muted-foreground">
+                          正在开发中，角色级高级功能不可编辑
+                        </div>
                       </div>
-                      <Switch
-                        checked={advancedFeatures.enableMcp || false}
-                        onCheckedChange={(checked) =>
-                          setAdvancedFeatures((prev) => ({ ...prev, enableMcp: checked }))
-                        }
-                      />
-                    </div>
 
-                    <div className="rounded-lg border p-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="font-medium">JavaScript 运行时</p>
-                        <p className="text-sm text-muted-foreground">为该角色开启前置/后置脚本。</p>
+                      <div className="space-y-4 opacity-60 pointer-events-none">
+                        <div className="rounded-lg border p-4 flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="font-medium">函数调用开关</p>
+                            <p className="text-sm text-muted-foreground">为该角色启用工具/函数调用能力</p>
+                          </div>
+                          <Switch
+                            checked={advancedFeatures.enableFunctionCalling || false}
+                            onCheckedChange={(checked) =>
+                              setAdvancedFeatures((prev) => ({ ...prev, enableFunctionCalling: checked }))
+                            }
+                          />
+                        </div>
+
+                        <div className="rounded-lg border p-4 flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="font-medium">MCP 连接</p>
+                            <p className="text-sm text-muted-foreground">控制该角色是否可使用 MCP 端点</p>
+                          </div>
+                          <Switch
+                            checked={advancedFeatures.enableMcp || false}
+                            onCheckedChange={(checked) =>
+                              setAdvancedFeatures((prev) => ({ ...prev, enableMcp: checked }))
+                            }
+                          />
+                        </div>
+
+                        <div className="rounded-lg border p-4 flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="font-medium">JavaScript 运行时</p>
+                            <p className="text-sm text-muted-foreground">为该角色开启前/后置脚本</p>
+                          </div>
+                          <Switch
+                            checked={advancedFeatures.enableJavascriptRuntime || false}
+                            onCheckedChange={(checked) =>
+                              setAdvancedFeatures((prev) => ({ ...prev, enableJavascriptRuntime: checked }))
+                            }
+                          />
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          全局配置请前往「设置 &gt; 高级功能」，角色开关仅控制作用范围。
+                        </p>
                       </div>
-                      <Switch
-                        checked={advancedFeatures.enableJavascriptRuntime || false}
-                        onCheckedChange={(checked) =>
-                          setAdvancedFeatures((prev) => ({ ...prev, enableJavascriptRuntime: checked }))
-                        }
-                      />
                     </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      全局配置请前往“设置 &gt; 高级功能”，角色级开关仅控制作用范围。
-                    </p>
                   </TabsContent>
                 </div>
               </ScrollArea>

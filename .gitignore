@@ -48,6 +48,9 @@ next-env.d.ts
 /logs/**
 !/logs/**/.gitkeep
 
+# 本地数据库文件（包含用户数据，不提交到 Git）
+mydatabase.db
+
 # AI助手临时文件目录（不提交到 Git）
 /.claude/**
 

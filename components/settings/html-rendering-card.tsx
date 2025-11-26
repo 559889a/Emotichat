@@ -10,10 +10,7 @@ interface HtmlRenderingCardProps {
   setEnableHtmlRendering: (value: boolean) => void;
 }
 
-export function HtmlRenderingCard({
-  enableHtmlRendering,
-  setEnableHtmlRendering,
-}: HtmlRenderingCardProps) {
+export function HtmlRenderingCard({ enableHtmlRendering, setEnableHtmlRendering }: HtmlRenderingCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -22,6 +19,7 @@ export function HtmlRenderingCard({
           <div>
             <CardTitle>HTML/CSS 渲染</CardTitle>
             <CardDescription>允许在消息中使用 HTML 标签和内联样式。</CardDescription>
+            <p className="text-sm text-muted-foreground">JavaScript 还暂未支持，作者正在开发中。</p>
           </div>
         </div>
       </CardHeader>
@@ -37,6 +35,7 @@ export function HtmlRenderingCard({
           <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20 p-3">
             <p className="text-sm text-orange-800 dark:text-orange-200">
               <strong>注意：</strong>启用 HTML 渲染可能带来安全风险，仅在可信环境下使用。
+              JavaScript 还暂未支持，作者正在开发中。
             </p>
           </div>
         )}
