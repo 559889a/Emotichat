@@ -1,7 +1,21 @@
-# EmotiChat · Discord 简介
-- 情感陪护聊天客户端（Next.js 15 + React 19），组件解耦，易于维护。
-- 亮点：角色/预设/对话管理、流式输出、Token 计数、富文本渲染、开发者模式。
-- 支持模型：OpenAI / Gemini / Anthropic，支持自定义端点与参数。
-- 快速开始：`npm install` → `npm run dev` → 访问 http://localhost:3000 → 在设置页填写各模型 API Key。
-- 隐私：`data/`、`logs/`、`mydatabase.db` 已忽略提交，API Key 存于浏览器本地。
-- 仓库：<https://github.com/559889a/Emotichat.git>
+# EmotiChat · 先行测试版（第 5 天）
+类 SillyTavern 的情感陪护聊天客户端（Next.js 15 + React 19）。**不会提供 SillyTavern 数据兼容层或内容转换**。
+
+🟢 已上线的好用功能  
+- 角色 / 预设 / 对话管理，提示词继承与覆盖，流式/非流式输出  
+- 多模型：OpenAI / Gemini / Anthropic，自定义端点与参数  
+- Token 计数：精确+估算，窗口提示与预警  
+- 富文本：Markdown、KaTeX、代码高亮，可选 HTML/CSS 预览（默认关）  
+- 开发者模式：请求/响应日志、提示词构建、性能与 Token 统计  
+- 本地存储：文件系统 JSON，数据/日志分目录
+
+🟡 还在做 / 未完全测试  
+- 更细的高级提示词工具与安全策略  
+- 更完善的性能优化与自动化测试  
+- 先行测试版，可能有 BUG/边缘问题
+
+🚀 快速试用  
+`npm install` → `npm run dev` → 打开 http://localhost:3000 → 设置页填各模型 API Key  
+（API Key 保存在浏览器本地；`data/`、`logs/`、`mydatabase.db` 已忽略提交）
+
+🔗 仓库：<https://github.com/559889a/Emotichat.git>

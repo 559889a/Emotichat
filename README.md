@@ -1,19 +1,27 @@
 # EmotiChat
 
-Next.js 15 + React 19 情感陪护聊天客户端，强调组件解耦与可维护性。基于 TypeScript、Tailwind CSS、shadcn/ui、Zustand 与 Vercel AI SDK 构建。
+Next.js 15 + React 19 的情感陪护聊天客户端，组件高度解耦，偏工程化。类 SillyTavern 项目，但**永不提供 SillyTavern 数据兼容层或内容转换**。
 
-## 核心特性
-- 角色/预设/对话管理，提示词继承与覆盖，流式/非流式输出。
-- 多模型支持：OpenAI / Gemini / Anthropic，支持自定义端点与参数配置。
-- Token 计数与限流：精确/估算、上下文窗口提示、警戒阈值。
-- 富文本渲染：Markdown、KaTeX、代码高亮、可选 HTML/CSS 预览。
-- 开发者模式：请求/响应日志、提示词构建展示、性能与 Token 统计。
-- 本地持久化：文件系统 JSON 存储，对话/角色/预设/日志分目录保存。
+- 立项到发布：第 5 天  
+- 当前版本：先行测试版（高级功能未完成、未全面测试）
+
+## 特色功能（已开发）
+- 角色 / 预设 / 对话：多级继承与覆盖，流式/非流式输出，版本化消息。
+- 模型与端点：内置 OpenAI / Gemini / Anthropic，支持自定义兼容端点与参数（temperature/top_p/max_tokens 等）。
+- Token 计数与限流：精确（tiktoken）/估算双方案，上下文窗口提示与预警。
+- 富文本渲染：Markdown、KaTeX、代码高亮，可选 HTML/CSS 预览（默认关闭）。
+- 开发者模式：请求/响应日志、提示词构建展示、性能与 Token 统计面板。
+- 本地持久化：文件系统 JSON，按目录区分对话/角色/预设/日志。
+
+## 在研 / 未完成 / 风险
+- 高级功能尚未完成：高级提示词编辑、更多安全策略、自动化测试体系。
+- 兼容性策略：不会做 SillyTavern 数据兼容层，不会转换或适配其内容。
+- 先行测试版：未经全面测试，存在潜在 BUG/性能问题。
 
 ## 技术栈
 - Next.js 15 + React 19 + TypeScript
 - Tailwind CSS + shadcn/ui
-- Zustand 状态管理
+- Zustand
 - Vercel AI SDK
 - js-tiktoken（Token 计数）
 
@@ -28,20 +36,19 @@ Next.js 15 + React 19 情感陪护聊天客户端，强调组件解耦与可维�
 - `logs/` 运行日志（已忽略提交）
 
 ## 本地运行
-1) Node.js 18+  
-2) 安装依赖：`npm install`  
-3) 开发模式：`npm run dev`（默认 http://localhost:3000）  
-4) 生产构建：`npm run build && npm run start`
+1. Node.js 18+  
+2. 安装依赖：`npm install`  
+3. 开发模式：`npm run dev`（默认 http://localhost:3000）  
+4. 生产构建：`npm run build && npm run start`
 
 ## 配置
 - 运行时配置：`config/config.yaml` 定义数据/日志目录、白名单等。
-- API Key：在设置页输入，保存在浏览器本地存储，不随代码提交。
-- 环境变量：如需自定义端点，可通过 `.env.local` 配置（默认被 `.gitignore` 忽略）。
+- API Key：设置页填写，存储于浏览器本地，不随代码提交。
+- 环境变量：可用 `.env.local` 自定义端点/密钥（已被 `.gitignore` 忽略）。
 
 ## 隐私与版本控制
-- 已从 Git 版本中移除本地日志与数据库文件，保留于本机：`logs/*.log`、`mydatabase.db`。
-- `data/`、`logs/`、`.env*` 默认忽略提交，防止隐私泄露。
-- 发布前请确认未将个人敏感数据写入代码或文档。
+- 已忽略提交：`data/`、`logs/`、`.env*`、`mydatabase.db`；防止本地隐私或运行数据泄露。
+- 发布前请检查代码/文档中是否包含个人信息。
 
 ## 部署
-- 兼容 Vercel/自托管：构建产物来自 `npm run build`。配置环境变量与自定义端点后即可部署。
+- 兼容 Vercel 与自托管：`npm run build` 生成产物，配置好端点与密钥即可部署。
