@@ -7,6 +7,7 @@ Next.js 15 + React 19 的情感陪护聊天客户端，组件高度解耦，偏�
 
 ## 特色功能（已开发）
 - 角色 / 预设 / 对话：多级继承与覆盖，流式/非流式输出，版本化消息。
+- 提示词编辑器：System/User/Assistant 分段；启停、排序、分组；before/after/replace 深度注入；变量与模板化；可视化 token 估算。
 - 模型与端点：内置 OpenAI / Gemini / Anthropic，支持自定义兼容端点与参数（temperature/top_p/max_tokens 等）。
 - Token 计数与限流：精确（tiktoken）/估算双方案，上下文窗口提示与预警。
 - 富文本渲染：Markdown、KaTeX、代码高亮，可选 HTML/CSS 预览（默认关闭）。
@@ -42,9 +43,8 @@ Next.js 15 + React 19 的情感陪护聊天客户端，组件高度解耦，偏�
 4. 生产构建：`npm run build && npm run start`
 
 ## 配置
-- 运行时配置：`config/config.yaml` 定义数据/日志目录、白名单等。
+- 运行时配置：`config.yaml`（唯一入口）定义数据/日志目录、白名单等；已取代环境变量方案，无需 `.env`。
 - API Key：设置页填写，存储于浏览器本地，不随代码提交。
-- 环境变量：可用 `.env.local` 自定义端点/密钥（已被 `.gitignore` 忽略）。
 
 ## 隐私与版本控制
 - 已忽略提交：`data/`、`logs/`、`.env*`、`mydatabase.db`；防止本地隐私或运行数据泄露。
