@@ -1,6 +1,6 @@
 /**
  * 模型系统统一导出
- * 整合官方提供商、自定义端点和模型配置
+ * 整合官方提供商、自定义端点和模型配�?
  */
 
 // 导出类型
@@ -14,7 +14,7 @@ export type {
   ModelSelectorOption,
 } from './types';
 
-// 导出官方提供商
+// 导出官方提供�?
 export {
   OPENAI_PROVIDER,
   GOOGLE_PROVIDER,
@@ -29,7 +29,7 @@ export {
   getEnhancedProvider,
 } from './providers';
 
-// 导出自定义端点管理
+// 导出自定义端点管�?
 export {
   getCustomProviders,
   addCustomProvider,
@@ -83,7 +83,7 @@ export function getAllModelsForSelector(): ModelSelectorOption[] {
 }
 
 /**
- * 解析模型选择器的值（providerId:modelId）
+ * 解析模型选择器的值（providerId:modelId�?
  */
 export function parseModelValue(value: string): { providerId: string; modelId: string } | null {
   const parts = value.split(':');
@@ -96,33 +96,12 @@ export function parseModelValue(value: string): { providerId: string; modelId: s
 }
 
 /**
- * 从模型配置创建 AI SDK 模型实例
+ * 从模型配置创�?AI SDK 模型实例
  */
 export function createModelFromConfig(config: ModelConfig) {
-  // 这个函数将在后续集成到 API route 中使用
+  // 这个函数将在后续集成�?API route 中使�?
   // 暂时返回配置对象本身
   return config;
-}
-
-/**
- * 获取环境变量中的 API Key
- */
-export function getApiKeyFromEnv(providerType: AIProviderType): string | undefined {
-  if (typeof window !== 'undefined') {
-    // 客户端不应访问环境变量
-    return undefined;
-  }
-  
-  switch (providerType) {
-    case 'openai':
-      return process.env.OPENAI_API_KEY;
-    case 'google':
-      return process.env.GOOGLE_API_KEY;
-    case 'anthropic':
-      return process.env.ANTHROPIC_API_KEY;
-    default:
-      return undefined;
-  }
 }
 
 /**
@@ -141,22 +120,22 @@ export function createDefaultModelConfig(): ModelConfig {
  * 验证模型配置是否有效
  */
 export function validateModelConfig(config: ModelConfig): { valid: boolean; error?: string } {
-  // 检查 providerId 和 modelId 是否存在
+  // 检�?providerId �?modelId 是否存在
   if (!config.providerId || !config.modelId) {
     return {
       valid: false,
-      error: '缺少 providerId 或 modelId',
+      error: '缺少 providerId �?modelId',
     };
   }
   
   // 检查提供商是否存在
   const provider = getProviderById(config.providerId);
   if (!provider) {
-    // 可能是自定义端点，暂时认为有效
+    // 可能是自定义端点，暂时认为有�?
     return { valid: true };
   }
   
-  // 检查模型是否存在
+  // 检查模型是否存�?
   const model = getModelInfo(config.providerId, config.modelId);
   if (!model) {
     return {
@@ -169,7 +148,7 @@ export function validateModelConfig(config: ModelConfig): { valid: boolean; erro
 }
 
 /**
- * 格式化模型显示名称
+ * 格式化模型显示名�?
  */
 export function formatModelDisplayName(providerId: string, modelId: string): string {
   const provider = getProviderById(providerId);

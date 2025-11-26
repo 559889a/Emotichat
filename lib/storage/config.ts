@@ -2,11 +2,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import { AppConfig } from '@/types';
 import type { PromptPreset } from '@/types/prompt';
+import { getRuntimePaths } from '@/config/runtime';
 
-const CONFIG_FILE = path.join(process.cwd(), 'data', 'config', 'app.json');
-const CONFIG_DIR = path.join(process.cwd(), 'data', 'config');
-const PRESETS_FILE = path.join(process.cwd(), 'data', 'config', 'presets.json');
-const ACTIVE_PRESET_FILE = path.join(process.cwd(), 'data', 'config', 'active-preset.json');
+const { dataDir } = getRuntimePaths();
+const CONFIG_DIR = path.join(dataDir, 'config');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'app.json');
+const PRESETS_FILE = path.join(CONFIG_DIR, 'presets.json');
+const ACTIVE_PRESET_FILE = path.join(CONFIG_DIR, 'active-preset.json');
 
 /**
  * 默认配置

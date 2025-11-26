@@ -3,8 +3,10 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { Memory } from '@/types';
 import { withFileLock } from './lock';
+import { getRuntimePaths } from '@/config/runtime';
 
-const DATA_DIR = path.join(process.cwd(), 'data', 'memories');
+const { dataDir } = getRuntimePaths();
+const DATA_DIR = path.join(dataDir, 'memories');
 
 /**
  * 确保角色记忆目录存在

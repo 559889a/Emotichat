@@ -16,8 +16,10 @@ import type {
 import { getDefaultConversationPromptConfig } from '@/types/prompt';
 import { getCharacterById } from './characters';
 import { withFileLock } from './lock';
+import { getRuntimePaths } from '@/config/runtime';
 
-const DATA_DIR = path.join(process.cwd(), 'data', 'conversations');
+const { dataDir } = getRuntimePaths();
+const DATA_DIR = path.join(dataDir, 'conversations');
 
 /**
  * 确保数据目录存在

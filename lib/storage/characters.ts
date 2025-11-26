@@ -2,8 +2,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Character, CreateCharacterInput, UpdateCharacterInput, CharacterPromptConfig } from '@/types';
 import { withFileLock } from './lock';
+import { getRuntimePaths } from '@/config/runtime';
 
-const DATA_DIR = path.join(process.cwd(), 'data', 'characters');
+const { dataDir } = getRuntimePaths();
+const DATA_DIR = path.join(dataDir, 'characters');
 
 /**
  * 为旧版角色数据创建默认的 promptConfig

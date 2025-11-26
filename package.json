@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "tsx scripts/run-with-config.ts dev",
     "build": "next build",
-    "start": "next start",
+    "start": "tsx scripts/run-with-config.ts start",
     "lint": "eslint",
     "test:phase1": "tsx scripts/test-phase-1-integration.ts",
     "test:prompt": "tsx scripts/test-prompt-integration.ts",

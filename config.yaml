@@ -1,0 +1,32 @@
+# EmotiChat 运行时配置（Windows 启动器 / Linux & Termux 共用）
+# 修改后可直接用 GUI 启动器或 bash/PowerShell 启动，无需 .env
+
+server:
+  # 监听地址（默认仅本机，提升安全性）
+  host: "127.0.0.1"
+  # 监听端口
+  port: 3000
+  # http 或 https（若使用反代/自签证书，可改为 https）
+  protocol: "http"
+  # 是否启动监听（保留开关，未来可用于禁用内置服务）
+  listen: true
+  # IP 白名单，支持 * 通配（单段 0-255），例如 192.168.1.* 或 10.*.*.*
+  whitelist:
+    - "127.0.0.1"
+  # 预留账号密码登录（默认关闭；仅做占位）
+  auth:
+    enabled: false
+    username: "admin"
+    password: "change-me"
+
+paths:
+  # 数据根目录（角色卡/会话等）
+  data: "./data"
+  # 日志目录
+  logs: "./logs"
+
+logging:
+  # debug | info | warn | error
+  level: "info"
+  # 是否记录请求日志
+  requestLogging: false
