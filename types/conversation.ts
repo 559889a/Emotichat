@@ -33,7 +33,9 @@ export interface Message {
   regenerationCount?: number;    // 重新生成次数（用于统计）
 
   // 思维链标签处理（LLM 辅助识别结果持久化）
-  thinkingTagPrepend?: string;   // 需要前置的思维链开头标签（如 "<think>"），null/undefined 表示不需要
+  thinkingTagPrepend?: string;   // 需要前置的思维链开头标签（如 "<think>"）
+  thinkingTagAppend?: string;    // 需要追加的思维链闭合标签（如 "</think>"）
+  thinkingTagProcessed?: boolean; // 是否已处理过思维链标签（避免重复调用 API）
 }
 
 // 模型配置（简化版，用于对话存储）

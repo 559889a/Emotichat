@@ -78,6 +78,7 @@ function ChatPageContent() {
     sendMessage,
     retryMessage,
     editMessage,
+    editAssistantMessage,
     deleteMessage,
     switchVersion,
     fetchMessages,
@@ -518,6 +519,7 @@ function ChatPageContent() {
                 isStreaming={isStreaming}
                 onRetry={retryMessage}
                 onEdit={editMessage}
+                onEditAssistant={editAssistantMessage}
                 onDelete={(messageId) => deleteMessage(messageId, false)}
                 onDeleteFollowing={(messageId) => deleteMessage(messageId, true)}
                 onVersionChange={switchVersion}

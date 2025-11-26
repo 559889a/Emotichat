@@ -15,6 +15,8 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   thinkingTagPrepend?: string; // 从消息持久化数据传入，需要前置的开头标签
+  thinkingTagAppend?: string;  // 从消息持久化数据传入，需要追加的闭合标签
+  disableThinkingBlocks?: boolean; // 禁用思维链折叠功能（用于用户消息）
 }
 
 // 思维链折叠块组件
@@ -79,7 +81,7 @@ function SummaryBlock({ children, ...props }: React.HTMLAttributes<HTMLElement>)
   );
 }
 
-// 自动补全不完整的思考标签（补全缺失的开头或闭合标签）
+// 自动补全不完整的思考标签（仅补全缺失的开头标签）
 function autoCompleteThinkingTags(
   content: string,
   thinkingTags: ThinkingTagConfig[]
@@ -98,15 +100,9 @@ function autoCompleteThinkingTags(
     const openCount = openMatches.length;
     const closeCount = closeMatches.length;
 
-    // 补全缺失的闭合标签（开头标签多于闭合标签时）
-    if (openCount > closeCount) {
-      const missingCount = openCount - closeCount;
-      for (let i = 0; i < missingCount; i++) {
-        result = result + tag.closeTag;
-      }
-    }
-    // 补全缺失的开头标签（闭合标签多于开头标签时）
-    else if (closeCount > openCount) {
+    // 仅补全缺失的开头标签（闭合标签多于开头标签时）
+    // 不再补全闭合标签，因为流式输出中可能只是尚未输出完成
+    if (closeCount > openCount) {
       const missingCount = closeCount - openCount;
       for (let i = 0; i < missingCount; i++) {
         result = tag.openTag + result;
@@ -271,7 +267,7 @@ function processChildren(
 /**
  * Markdown 渲染器组件
  */
-export function MarkdownRenderer({ content, className = '', thinkingTagPrepend }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className = '', thinkingTagPrepend, thinkingTagAppend, disableThinkingBlocks = false }: MarkdownRendererProps) {
   const {
     thinkingCollapsed,
     thinkingAutoComplete,
@@ -280,16 +276,27 @@ export function MarkdownRenderer({ content, className = '', thinkingTagPrepend }
     enableHtmlRendering,
   } = useUIPreferences();
 
-  // 如果有持久化的前置标签，则在渲染时添加
-  // 这个值来自消息完成时的 LLM 辅助判断结果，已经保存到消息数据中
-  const contentToRender = thinkingTagPrepend
-    ? thinkingTagPrepend + content
-    : content;
+  // 应用持久化的标签修复（仅当未禁用思维链时）
+  // thinkingTagPrepend: 前置的开头标签（如 <think>）
+  // thinkingTagAppend: 追加的闭合标签（如 </think>）
+  let contentToRender = content;
+  if (!disableThinkingBlocks) {
+    if (thinkingTagPrepend) {
+      contentToRender = thinkingTagPrepend + contentToRender;
+    }
+    if (thinkingTagAppend) {
+      contentToRender = contentToRender + thinkingTagAppend;
+    }
+  }
 
-  // 预处理思维链内容
+  // 预处理思维链内容（仅当未禁用时）
   const { processedContent, thinkingBlocks } = useMemo(() => {
+    if (disableThinkingBlocks) {
+      // 禁用思维链时，直接返回原始内容
+      return { processedContent: contentToRender, thinkingBlocks: [] };
+    }
     return preprocessThinkingBlocks(contentToRender, thinkingTags, thinkingAutoComplete);
-  }, [contentToRender, thinkingTags, thinkingAutoComplete]);
+  }, [contentToRender, thinkingTags, thinkingAutoComplete, disableThinkingBlocks]);
 
   // 将处理后的内容分割成片段
   const contentParts = useMemo(() => {

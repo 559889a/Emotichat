@@ -469,7 +469,7 @@ export function RenderingSettings() {
                 <div className="space-y-0.5">
                   <Label>自动补全标签</Label>
                   <p className="text-sm text-muted-foreground">
-                    自动补全缺失的开头或闭合标签（如有 &lt;think&gt; 补 &lt;/think&gt;，或反之）
+                    自动补全缺失的开头标签（如有 &lt;/think&gt; 补 &lt;think&gt;）
                   </p>
                 </div>
                 <Switch

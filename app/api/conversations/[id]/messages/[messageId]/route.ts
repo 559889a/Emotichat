@@ -108,12 +108,40 @@ export async function PATCH(
       });
     }
 
-    // 处理设置思维链标签前缀（LLM 辅助识别结果）
+    // 处理设置思维链标签（LLM 辅助识别结果）
     if (action === 'set_thinking_tag') {
-      // thinkingTagPrepend 可以是字符串或 null/undefined（表示清除）
-      const { thinkingTagPrepend } = body;
+      const { thinkingTagPrepend, thinkingTagAppend, thinkingTagProcessed } = body;
 
-      const updatedMessage = await updateMessage(id, messageId, undefined, { thinkingTagPrepend });
+      const updatedMessage = await updateMessage(id, messageId, undefined, {
+        thinkingTagPrepend,
+        thinkingTagAppend,
+        thinkingTagProcessed,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: updatedMessage,
+      });
+    }
+
+    // 处理 AI 消息编辑（不触发重新生成）
+    if (action === 'edit_assistant') {
+      if (!body.content || typeof body.content !== 'string') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '消息内容不能为空',
+          },
+          { status: 400 }
+        );
+      }
+
+      // 直接更新消息内容，并重置思维链处理状态
+      const updatedMessage = await updateMessage(id, messageId, body.content.trim(), {
+        thinkingTagProcessed: false, // 重置处理状态，允许重新检测
+        thinkingTagPrepend: undefined,
+        thinkingTagAppend: undefined,
+      });
 
       return NextResponse.json({
         success: true,

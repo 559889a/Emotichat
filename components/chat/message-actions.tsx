@@ -32,7 +32,8 @@ import { Message, MessageRole } from '@/types';
 
 interface MessageActionsProps {
   message: Message;
-  onEdit?: () => void;
+  onEdit?: () => void;           // 用户消息编辑（会触发重新生成）
+  onEditAssistant?: () => void;  // AI 消息编辑（不触发重新生成）
   onRegenerate?: () => void;
   onDelete?: () => void;
   onDeleteFollowing?: () => void;
@@ -44,6 +45,7 @@ interface MessageActionsProps {
 export function MessageActions({
   message,
   onEdit,
+  onEditAssistant,
   onRegenerate,
   onDelete,
   onDeleteFollowing,
@@ -106,7 +108,7 @@ export function MessageActions({
             )}
           </Button>
 
-          {/* 用户消息：编辑按钮 */}
+          {/* 用户消息：编辑按钮（会触发重新生成） */}
           {isUserMessage && onEdit && (
             <Button
               variant="ghost"
@@ -114,6 +116,19 @@ export function MessageActions({
               className="h-7 w-7 hover:bg-accent"
               onClick={onEdit}
               title="编辑消息"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
+          {/* AI 消息：编辑按钮（不触发重新生成） */}
+          {!isUserMessage && onEditAssistant && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 hover:bg-accent"
+              onClick={onEditAssistant}
+              title="编辑回复"
             >
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
@@ -150,6 +165,16 @@ export function MessageActions({
                   <DropdownMenuItem onClick={onEdit}>
                     <Edit2 className="mr-2 h-4 w-4" />
                     编辑消息
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
+              {!isUserMessage && onEditAssistant && (
+                <>
+                  <DropdownMenuItem onClick={onEditAssistant}>
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    编辑回复
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                 </>

@@ -88,11 +88,15 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
   isStreaming,
   className,
   thinkingTagPrepend,
+  thinkingTagAppend,
+  disableThinkingBlocks,
 }: {
   content: string;
   isStreaming?: boolean;
   className?: string;
   thinkingTagPrepend?: string;
+  thinkingTagAppend?: string;
+  disableThinkingBlocks?: boolean;
 }) {
   const [displayedContent, setDisplayedContent] = useState(content);
   const bufferRef = useRef<string[]>([]);
@@ -189,7 +193,12 @@ const SmoothStreamingContent = memo(function SmoothStreamingContent({
 
   return (
     <div className={cn("transition-opacity duration-100", className)}>
-      <MarkdownRenderer content={displayedContent} thinkingTagPrepend={thinkingTagPrepend} />
+      <MarkdownRenderer
+        content={displayedContent}
+        thinkingTagPrepend={thinkingTagPrepend}
+        thinkingTagAppend={thinkingTagAppend}
+        disableThinkingBlocks={disableThinkingBlocks}
+      />
       {isStreaming && displayedContent.length > 0 && (
         <span className="inline-block w-0.5 h-4 bg-gradient-to-b from-pink-500 to-purple-500 animate-pulse ml-0.5 align-middle rounded-full" />
       )}
@@ -206,7 +215,8 @@ interface MessageBubbleProps {
   streamingStartTime?: number | null; // 流式输出开始时间，用于计时器
   recordedResponseTime?: number; // 已记录的响应时间（用于已完成的消息）
   recordedTokenCount?: number; // 已记录的 token 数（用于已完成的消息）
-  onEdit?: (content: string) => void;
+  onEdit?: (content: string) => void;           // 用户消息编辑（触发重新生成）
+  onEditAssistant?: (content: string) => void;  // AI 消息编辑（不触发重新生成）
   onRegenerate?: () => void;
   onDelete?: () => void;
   onDeleteFollowing?: () => void;
@@ -225,6 +235,7 @@ export const MessageBubble = memo(function MessageBubble({
   recordedResponseTime,
   recordedTokenCount,
   onEdit,
+  onEditAssistant,
   onRegenerate,
   onDelete,
   onDeleteFollowing,
@@ -247,8 +258,15 @@ export const MessageBubble = memo(function MessageBubble({
   const shouldShowTimer = isStreaming || recordedResponseTime !== undefined;
 
   const handleEdit = () => setIsEditing(true);
+  const handleEditAssistant = () => setIsEditing(true);
   const handleSaveEdit = (content: string) => {
-    onEdit?.(content);
+    if (isUser) {
+      // 用户消息编辑（触发重新生成）
+      onEdit?.(content);
+    } else {
+      // AI 消息编辑（不触发重新生成）
+      onEditAssistant?.(content);
+    }
     setIsEditing(false);
   };
   const handleCancelEdit = () => setIsEditing(false);
@@ -377,6 +395,7 @@ export const MessageBubble = memo(function MessageBubble({
             <MessageActions
               message={message}
               onEdit={isUser && onEdit ? handleEdit : undefined}
+              onEditAssistant={!isUser && onEditAssistant ? handleEditAssistant : undefined}
               onRegenerate={onRegenerate}
               onDelete={onDelete}
               onDeleteFollowing={onDeleteFollowing}
@@ -400,12 +419,18 @@ export const MessageBubble = memo(function MessageBubble({
                 <SmoothStreamingContent
                   content={message.content}
                   isStreaming={isStreaming}
-                  thinkingTagPrepend={message.thinkingTagPrepend}
+                  // 思维链标签和折叠功能只对 AI 消息生效
+                  thinkingTagPrepend={!isUser ? message.thinkingTagPrepend : undefined}
+                  thinkingTagAppend={!isUser ? message.thinkingTagAppend : undefined}
+                  disableThinkingBlocks={isUser}
                 />
               ) : (
                 <MarkdownRenderer
                   content={message.content}
-                  thinkingTagPrepend={message.thinkingTagPrepend}
+                  // 思维链标签和折叠功能只对 AI 消息生效
+                  thinkingTagPrepend={!isUser ? message.thinkingTagPrepend : undefined}
+                  thinkingTagAppend={!isUser ? message.thinkingTagAppend : undefined}
+                  disableThinkingBlocks={isUser}
                 />
               )}
             </div>

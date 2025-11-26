@@ -13,6 +13,7 @@ interface MessageListProps {
   isStreaming?: boolean; // 区分流式和非流式输出
   onRetry?: (messageId: string) => void;
   onEdit?: (messageId: string, content: string) => void;
+  onEditAssistant?: (messageId: string, content: string) => void; // AI 消息编辑（不触发重新生成）
   onDelete?: (messageId: string) => void;
   onDeleteFollowing?: (messageId: string) => void;
   onVersionChange?: (messageId: string, versionId: string) => void;
@@ -92,6 +93,7 @@ export function MessageList({
   isStreaming = false,
   onRetry,
   onEdit,
+  onEditAssistant,
   onDelete,
   onDeleteFollowing,
   onVersionChange,
@@ -242,6 +244,11 @@ export function MessageList({
               onEdit={
                 message.role === 'user' && onEdit && !isWelcomeMessage
                   ? (content: string) => onEdit(message.id, content)
+                  : undefined
+              }
+              onEditAssistant={
+                message.role === 'assistant' && onEditAssistant && !isWelcomeMessage
+                  ? (content: string) => onEditAssistant(message.id, content)
                   : undefined
               }
               onDelete={

@@ -347,7 +347,11 @@ export async function updateMessage(
   conversationId: string,
   messageId: string,
   content?: string,
-  metadata?: { thinkingTagPrepend?: string }
+  metadata?: {
+    thinkingTagPrepend?: string;
+    thinkingTagAppend?: string;
+    thinkingTagProcessed?: boolean;
+  }
 ): Promise<Message> {
   try {
     await ensureConversationDir(conversationId);
@@ -401,6 +405,12 @@ export async function updateMessage(
       if (metadata) {
         if ('thinkingTagPrepend' in metadata) {
           message.thinkingTagPrepend = metadata.thinkingTagPrepend;
+        }
+        if ('thinkingTagAppend' in metadata) {
+          message.thinkingTagAppend = metadata.thinkingTagAppend;
+        }
+        if ('thinkingTagProcessed' in metadata) {
+          message.thinkingTagProcessed = metadata.thinkingTagProcessed;
         }
       }
 
