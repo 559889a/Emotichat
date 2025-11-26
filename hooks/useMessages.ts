@@ -8,6 +8,8 @@ import { Message, MessageRole } from '@/types';
 import { useMessageTransport } from './messages/useMessageTransport';
 import { useMessageMetadata } from './messages/useMessageMetadata';
 import { useThinkingBlockPersistence } from './messages/useThinkingBlockPersistence';
+import { useRegexRules } from '@/hooks/useRegexRules';
+import { applyRegexRules } from '@/lib/regex/engine';
 
 const THINKING_ASSIST_DISABLED = true;
 
@@ -42,6 +44,7 @@ export function useMessages({
   const { transport, globalConfig } = useMessageTransport(conversationId);
   const { thinkingTags, thinkingLLMAssist, thinkingLLMProtocol, thinkingLLMEndpoint, thinkingLLMApiKey, thinkingLLMModel } =
     useUIPreferences();
+  const { rules: regexRules } = useRegexRules();
 
   const thinkingConfigRef = useRef({
     thinkingTags,
@@ -140,7 +143,7 @@ export function useMessages({
     },
   });
 
-  const messages: Message[] = chatMessages.map((m) => {
+  const messages: Message[] = chatMessages.map((m, index) => {
     let content = '';
     if (m.parts && Array.isArray(m.parts)) {
       content = m.parts
@@ -150,11 +153,19 @@ export function useMessages({
     }
 
     const serverMsg = serverMessagesRef.current.get(m.id);
+    const scope = m.role === 'user' ? 'user_input' : m.role === 'assistant' ? 'ai_output' : null;
+    let displayContent: string | undefined;
+    if (scope && regexRules.length > 0) {
+      const applied = applyRegexRules(content, regexRules, { scope, layer: index });
+      content = applied.content;
+      displayContent = applied.displayContent;
+    }
 
     return {
       id: m.id,
       role: m.role as MessageRole,
       content,
+      displayContent,
       createdAt: serverMsg?.createdAt || new Date().toISOString(),
       thinkingTagPrepend: serverMsg?.thinkingTagPrepend,
       thinkingTagAppend: serverMsg?.thinkingTagAppend,
@@ -235,9 +246,11 @@ export function useMessages({
       setError(null);
 
       try {
+        const payload = content.trim();
+
         await sendChatMessage({
           role,
-          parts: [{ type: 'text', text: content.trim() }],
+          parts: [{ type: 'text', text: payload }],
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '发送消息失败';

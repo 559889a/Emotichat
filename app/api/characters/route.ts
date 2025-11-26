@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
       avatar: body.avatar,
       promptConfig: body.promptConfig,
       isUserProfile: body.isUserProfile, // 用户角色标识
+      advancedFeatures: typeof body.advancedFeatures === 'object' ? body.advancedFeatures : undefined,
     };
     
     const character = await createCharacter(characterData);

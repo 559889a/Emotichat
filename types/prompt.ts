@@ -76,6 +76,15 @@ export interface PromptVariable {
 }
 
 /**
+ * 运行时变量值
+ */
+export interface RuntimeVariables {
+  time?: string;
+  location?: string;
+  deviceInfo?: string;
+}
+
+/**
  * 宏接口（宏处理系统）
  * 支持的宏类型：
  * - setvar: {{setvar::变量名::变量值}}

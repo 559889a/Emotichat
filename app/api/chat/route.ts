@@ -8,6 +8,8 @@ import type { AIProviderType } from '@/lib/ai/models';
 import { maskSensitiveData } from '@/lib/utils';
 import { getCharacterById, getActiveUserProfile } from '@/lib/storage/characters';
 import { getActivePreset } from '@/lib/storage/config';
+import { loadRegexRules } from '@/lib/storage/regex-rules';
+import { applyRegexRules } from '@/lib/regex/engine';
 import { buildPrompt } from '@/lib/prompt/builder';
 import type { Message } from '@/types';
 
@@ -34,17 +36,24 @@ export async function POST(request: Request) {
       conversationId,
       globalModelConfig,
       apiKey: clientApiKey,
+      runtimeVariables,
     }: {
       messages: UIMessage[];
       conversationId: string;
       globalModelConfig?: GlobalModelConfig | null;
       apiKey?: string | null;
+      runtimeVariables?: {
+        time?: string;
+        location?: string;
+        deviceInfo?: string;
+      } | null;
     } = body;
 
     console.log('=== Chat API Request ===');
     console.log('conversationId:', conversationId);
     console.log('globalModelConfig:', JSON.stringify(maskSensitiveData(globalModelConfig), null, 2));
     console.log('clientApiKey:', clientApiKey ? '***provided***' : null);
+    console.log('runtimeVariables:', runtimeVariables ? JSON.stringify(runtimeVariables) : 'none');
     console.log('messages (from client):', messages.length, 'messages');
 
     if (!conversationId) {
@@ -68,6 +77,7 @@ export async function POST(request: Request) {
 
     // 获取激活的用户角色（用于 user_prompts 引用和 {{user}} 变量）
     const activeUserProfile = await getActiveUserProfile();
+    const regexRules = await loadRegexRules();
 
     // 转换 UI 消息为我们的 Message 类型
     const historyMessages: Message[] = messages.map(msg => {
@@ -322,6 +332,8 @@ export async function POST(request: Request) {
         skipPostProcess: false,
         userName, // 使用激活用户角色的名称
         activeUserProfile: activeUserProfile || undefined, // 传递激活的用户角色
+        runtimeVariables: runtimeVariables || undefined,
+        regexRules,
       },
       activePreset // 传入活动预设
     );
@@ -410,9 +422,17 @@ export async function POST(request: Request) {
 
         // 流式响应完成后，保存 AI 的回复
         if (text) {
+          let finalText = text;
+          if (regexRules.length > 0) {
+            const applied = applyRegexRules(text, regexRules, {
+              scope: 'ai_output',
+              layer: historyMessages.length,
+            });
+            finalText = applied.content;
+          }
           await addMessage(conversationId, {
             role: 'assistant',
-            content: text,
+            content: finalText,
             model: modelId,
           });
         } else {
@@ -526,9 +546,17 @@ export async function POST(request: Request) {
 
         // 立即保存 AI 的回复
         if (result.text) {
+          let finalText = result.text;
+          if (regexRules.length > 0) {
+            const applied = applyRegexRules(result.text, regexRules, {
+              scope: 'ai_output',
+              layer: historyMessages.length,
+            });
+            finalText = applied.content;
+          }
           await addMessage(conversationId, {
             role: 'assistant',
-            content: result.text,
+            content: finalText,
             model: modelId,
           });
         } else {

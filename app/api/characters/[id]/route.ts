@@ -92,6 +92,9 @@ export async function PUT(
     if (body.avatar !== undefined) updateData.avatar = body.avatar;
     if (body.promptConfig !== undefined) updateData.promptConfig = body.promptConfig;
     if (body.isUserProfile !== undefined) updateData.isUserProfile = body.isUserProfile; // 用户角色标识
+    if (body.advancedFeatures !== undefined && typeof body.advancedFeatures === 'object') {
+      updateData.advancedFeatures = body.advancedFeatures;
+    }
     
     const character = await updateCharacter(id, updateData);
     

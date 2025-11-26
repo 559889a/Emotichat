@@ -1,4 +1,14 @@
 import type { CharacterPromptConfig } from './prompt';
+import type { FunctionCallProfile, McpServerConfig } from './advanced';
+
+export interface CharacterAdvancedFeatures {
+  enableFunctionCalling?: boolean;
+  enableMcp?: boolean;
+  enableJavascriptRuntime?: boolean;
+  toolProfileId?: FunctionCallProfile['id'];
+  mcpServerIds?: McpServerConfig['id'][];
+  jsSandboxLevel?: 'strict' | 'balanced' | 'open';
+}
 
 export interface Character {
   id: string;                    // UUID
@@ -18,6 +28,9 @@ export interface Character {
 
   // 提示词配置（新提示词系统）
   promptConfig?: CharacterPromptConfig; // 角色级提示词配置（可选）
+
+  // 高级功能开关
+  advancedFeatures?: CharacterAdvancedFeatures;
 
   // 角色类型标识
   isUserProfile?: boolean;       // 是否为用户角色（true=用户角色，false/undefined=AI对话角色）

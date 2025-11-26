@@ -15,37 +15,36 @@ import type {
   PromptItem,
   PromptRole,
   PromptPreset,
+  PostProcessConfig,
+  RuntimeVariables,
 } from '@/types';
+import type { RegexRule } from '@/types/regex';
 
 import { replaceVariables, getCurrentSystemVariables } from './variables';
 import { replacePlaceholders } from './placeholders';
 import { expandMacros, createMacroStore, macroStoreToRecord } from './macros';
 import { adaptRoleForProvider, type ProviderType } from './role-adapter';
 import { processInjections } from './injection';
+import { applyRegexRules } from '@/lib/regex/engine';
 import {
   postProcess,
   filterEmptyMessages,
   advancedPostProcess,
   DEFAULT_POST_PROCESS_CONFIG
 } from './post-processor';
-import type { PostProcessConfig } from '@/types';
 
 /**
  * 构建选项
  */
 export interface BuildPromptOptions {
-  /** 是否跳过后处理 */
   skipPostProcess?: boolean;
-  /** 后处理配置 */
   postProcessConfig?: PostProcessConfig;
-  /** 自定义用户名 */
   userName?: string;
-  /** 额外的系统变量 */
   extraVariables?: Record<string, string>;
-  /** 激活的用户角色（用于 user_prompts 引用和 {{user}} 变量） */
   activeUserProfile?: Character;
+  runtimeVariables?: RuntimeVariables;
+  regexRules?: RegexRule[];
 }
-
 /**
  * 构建结果
  */
@@ -123,7 +122,7 @@ export function buildPromptWithContext(
   const { normalItems, injectionItems } = separateInjectionItems(sortedPromptItems);
 
   // 7. 构建基础消息数组（包含历史消息）
-  let processedMessages = buildBaseMessages(normalItems, messages, context, macroStore);
+  let processedMessages = buildBaseMessages(normalItems, messages, context, macroStore, options.regexRules);
 
   // 8. 处理注入
   processedMessages = processInjections(processedMessages, injectionItems);
@@ -160,7 +159,12 @@ function createBuildContext(
   options: BuildPromptOptions
 ): PromptBuildContext {
   // 获取系统变量
-  const systemVariables = getCurrentSystemVariables();
+  const baseSystemVariables = getCurrentSystemVariables();
+  const systemVariables: RuntimeVariables = {
+    ...baseSystemVariables,
+    ...options.runtimeVariables,
+    ...options.extraVariables,
+  };
   
   // 找到最后一条用户消息
   const lastUserMessage = messages
@@ -180,10 +184,7 @@ function createBuildContext(
     userName: options.userName || 'User',
     messageHistory,
     lastUserMessage,
-    systemVariables: {
-      ...systemVariables,
-      ...options.extraVariables,
-    },
+    systemVariables,
     temporaryVariables: conversation.promptConfig?.variables,
   };
 }
@@ -500,7 +501,8 @@ function buildBaseMessages(
   promptItems: PromptItem[],
   historyMessages: Message[],
   context: PromptBuildContext,
-  macroStore: Map<string, string>
+  macroStore: Map<string, string>,
+  regexRules?: RegexRule[]
 ): ProcessedPromptMessage[] {
   const result: ProcessedPromptMessage[] = [];
   console.log('[buildBaseMessages] Processing', promptItems.length, 'prompt items and', historyMessages.length, 'history messages');
@@ -515,6 +517,14 @@ function buildBaseMessages(
     content = replaceVariables(content, context);
     content = replacePlaceholders(content, context);
     content = expandMacros(content, macroStore);
+    const scope = msg.role === 'user' ? 'user_input' : msg.role === 'assistant' ? 'ai_output' : null;
+    if (scope && regexRules && regexRules.length > 0) {
+      const { content: processedContent } = applyRegexRules(content, regexRules, {
+        scope,
+        layer: i,
+      });
+      content = processedContent;
+    }
 
     processedHistoryMessages.push({
       role: msg.role as PromptRole,

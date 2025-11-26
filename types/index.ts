@@ -33,6 +33,7 @@ export type {
   PromptLayer,
   PromptInjection,
   PromptVariable,
+  RuntimeVariables,
   PromptMacro,
   PromptItem,
   PostProcessConfig,
@@ -76,6 +77,12 @@ export type {
 
 // 导出 Dev Mode 工具函数
 export { getDefaultDevModeSettings } from './dev-mode';
+
+// 高级功能/集成
+export type { AdvancedFeatureConfig, FunctionCallProfile, JsRuntimeConfig, McpServerConfig } from './advanced';
+
+// 正则后处理
+export type { RegexRule, RegexScope, RegexMode, RegexTestResult } from './regex';
 
 // 记忆相关
 export interface Memory {

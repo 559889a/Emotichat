@@ -18,6 +18,7 @@ export interface Message {
   id: string;                    // UUID
   role: MessageRole;             // 消息角色
   content: string;               // 消息内容（当前活动版本的内容）
+  displayContent?: string;       // ????????????????????
   createdAt: string;             // ISO 8601 时间戳
 
   // 可选元数据

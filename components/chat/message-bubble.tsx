@@ -83,6 +83,8 @@ export const MessageBubble = memo(function MessageBubble({
     });
   }, [conversationId, isUser, message.id]);
 
+  const contentForRender = message.displayContent || message.content;
+
   return (
     <div
       className={cn(
@@ -128,7 +130,7 @@ export const MessageBubble = memo(function MessageBubble({
             <div className="overflow-hidden text-sm leading-relaxed">
               {isStreaming ? (
                 <SmoothStreamingContent
-                  content={message.content}
+                  content={contentForRender}
                   isStreaming={isStreaming}
                   thinkingTagPrepend={!isUser ? message.thinkingTagPrepend : undefined}
                   thinkingTagAppend={!isUser ? message.thinkingTagAppend : undefined}
@@ -138,7 +140,7 @@ export const MessageBubble = memo(function MessageBubble({
                 />
               ) : (
                 <MarkdownRenderer
-                  content={message.content}
+                  content={contentForRender}
                   thinkingTagPrepend={!isUser ? message.thinkingTagPrepend : undefined}
                   thinkingTagAppend={!isUser ? message.thinkingTagAppend : undefined}
                   disableThinkingBlocks={isUser}

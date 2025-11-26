@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import {
   History,
@@ -61,6 +61,7 @@ export default function HistoryPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isBatchMode, setIsBatchMode] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const initializedRef = useRef(false)
 
   // 按角色分组对话
   const groupedConversations = useMemo(() => {
@@ -89,12 +90,13 @@ export default function HistoryPage() {
     )
   }, [conversations, characters, searchQuery])
 
-  // 初始展开所有分组
-  useMemo(() => {
-    if (groupedConversations.length > 0 && expandedGroups.size === 0) {
+  // 初始展开所有分组（仅首次加载时）
+  useEffect(() => {
+    if (!initializedRef.current && groupedConversations.length > 0) {
       setExpandedGroups(new Set(groupedConversations.map((g) => g.characterId)))
+      initializedRef.current = true
     }
-  }, [groupedConversations, expandedGroups.size])
+  }, [groupedConversations])
 
   // 切换分组展开状态
   const toggleGroup = (characterId: string) => {

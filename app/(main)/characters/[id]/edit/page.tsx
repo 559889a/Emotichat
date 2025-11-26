@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, User, Sparkles, Save, X, Info, Loader2, AlertCircle } from 'lucide-react';
 import { useCharacters } from '@/hooks/useCharacters';
-import type { Character, UpdateCharacterInput } from '@/types/character';
+import type { Character, CharacterAdvancedFeatures, UpdateCharacterInput } from '@/types/character';
 import type { CharacterPromptConfig } from '@/types/prompt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { PromptConfig, getDefaultPromptConfig } from '@/components/character/prompt-config';
 import ErrorBoundary from '@/components/layout/error-boundary';
 
@@ -80,6 +81,13 @@ export default function EditCharacterPage() {
   // 提示词配置状态
   const [promptConfig, setPromptConfig] = useState<CharacterPromptConfig>(getDefaultPromptConfig());
 
+  // 高级功能状态
+  const [advancedFeatures, setAdvancedFeatures] = useState<CharacterAdvancedFeatures>({
+    enableFunctionCalling: false,
+    enableMcp: false,
+    enableJavascriptRuntime: false,
+  });
+
   // UI 状态
   const [personalityInput, setPersonalityInput] = useState('');
   const [personality, setPersonality] = useState<string[]>([]);
@@ -105,6 +113,13 @@ export default function EditCharacterPage() {
 
       // 提示词配置（带向后兼容迁移）
       setPromptConfig(migrateOldCharacterToPromptConfig(foundCharacter));
+      setAdvancedFeatures(
+        foundCharacter.advancedFeatures || {
+          enableFunctionCalling: false,
+          enableMcp: false,
+          enableJavascriptRuntime: false,
+        }
+      );
 
       setLoading(false);
     } else if (characters.length > 0) {
@@ -189,6 +204,7 @@ export default function EditCharacterPage() {
         memoryEnabled: character?.memoryEnabled ?? true,
         temperature: character?.temperature ?? 0.7,
         defaultModel: character?.defaultModel,
+        advancedFeatures,
       };
 
       await updateCharacter(characterId, submitData);
@@ -290,7 +306,7 @@ export default function EditCharacterPage() {
         <div className="flex-1 overflow-hidden">
           <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 h-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="basic" className="gap-1.5">
                   <User className="h-4 w-4" />
                   <span className="hidden sm:inline">基本信息</span>
@@ -300,6 +316,11 @@ export default function EditCharacterPage() {
                   <Sparkles className="h-4 w-4" />
                   <span className="hidden sm:inline">提示词配置</span>
                   <span className="sm:hidden">提示词</span>
+                </TabsTrigger>
+                <TabsTrigger value="advanced" className="gap-1.5">
+                  <Info className="h-4 w-4" />
+                  <span className="hidden sm:inline">高级功能</span>
+                  <span className="sm:hidden">高级</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -405,6 +426,52 @@ export default function EditCharacterPage() {
                       onChange={setPromptConfig}
                       characterName={formData.name || '角色'}
                     />
+                  </TabsContent>
+
+                  {/* 高级功能设置 */}
+                  <TabsContent value="advanced" className="mt-0 pb-6 space-y-4">
+                    <div className="rounded-lg border p-4 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="font-medium">函数调用框架</p>
+                        <p className="text-sm text-muted-foreground">为该角色开启工具调用能力。</p>
+                      </div>
+                      <Switch
+                        checked={advancedFeatures.enableFunctionCalling || false}
+                        onCheckedChange={(checked) =>
+                          setAdvancedFeatures((prev) => ({ ...prev, enableFunctionCalling: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="rounded-lg border p-4 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="font-medium">MCP 集成</p>
+                        <p className="text-sm text-muted-foreground">控制该角色是否可使用 MCP 端点。</p>
+                      </div>
+                      <Switch
+                        checked={advancedFeatures.enableMcp || false}
+                        onCheckedChange={(checked) =>
+                          setAdvancedFeatures((prev) => ({ ...prev, enableMcp: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="rounded-lg border p-4 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="font-medium">JavaScript 运行时</p>
+                        <p className="text-sm text-muted-foreground">为该角色开启前置/后置脚本。</p>
+                      </div>
+                      <Switch
+                        checked={advancedFeatures.enableJavascriptRuntime || false}
+                        onCheckedChange={(checked) =>
+                          setAdvancedFeatures((prev) => ({ ...prev, enableJavascriptRuntime: checked }))
+                        }
+                      />
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      全局配置请前往“设置 &gt; 高级功能”，角色级开关仅控制作用范围。
+                    </p>
                   </TabsContent>
                 </div>
               </ScrollArea>

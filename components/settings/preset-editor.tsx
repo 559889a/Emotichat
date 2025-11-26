@@ -329,16 +329,13 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
 
                 {/* Max Tokens (最大输出) - 条状滑块 + 数字输入 */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="maxTokens">Max Tokens（最大输出）</Label>
-                      <Switch
-                        checked={preset.enabledParameters.includes('maxTokens')}
-                        onCheckedChange={(checked) => toggleParameter('maxTokens', checked)}
-                        disabled={readOnly || parametersLocked}
-                        className="h-5 w-9"
-                      />
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={preset.enabledParameters.includes('maxTokens')}
+                      onCheckedChange={(checked) => toggleParameter('maxTokens', checked)}
+                      disabled={readOnly || parametersLocked}
+                    />
+                    <Label htmlFor="maxTokens" className="flex-1">Max Tokens（最大输出）</Label>
                     <Input
                       id="maxTokensInput"
                       type="number"
@@ -350,7 +347,7 @@ export function PresetEditor({ preset, onChange, readOnly = false }: PresetEdito
                         updateParameter('maxTokens', parseInt(e.target.value) || 2048)
                       }
                       disabled={readOnly || parametersLocked || !preset.enabledParameters.includes('maxTokens')}
-                      className="w-28 h-8 text-right font-mono"
+                      className="w-24 h-8 text-right font-mono"
                     />
                   </div>
                   <Slider

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { MessageSquare, Users, Settings, Heart, ChevronsLeft, ChevronsRight, History, Sliders } from "lucide-react"
+import { MessageSquare, Users, Settings, Heart, ChevronsLeft, ChevronsRight, History, Sliders, Wand2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ThemeToggle } from "./theme-toggle"
 import { useUIPreferences } from "@/stores/uiPreferences"
@@ -32,9 +32,14 @@ const navigation = [
     icon: History,
   },
   {
-    name: "预设管理",
+    name: "预设/正则管理",
     href: "/settings/prompts",
     icon: Sliders,
+  },
+  {
+    name: "高级功能",
+    href: "/settings/advanced",
+    icon: Wand2,
   },
   {
     name: "设置",

@@ -43,15 +43,8 @@ export function getCurrentSystemVariables(): {
 } {
   // 获取当前时间（格式化为易读形式）
   const now = new Date();
-  const time = now.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const time = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   
   // 获取设备信息
   const deviceInfo = typeof navigator !== 'undefined'

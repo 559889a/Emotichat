@@ -6,11 +6,13 @@ import { getGlobalModelConfig, type GlobalModelConfig } from '@/components/setti
 import { getStoredApiKey } from '@/components/settings/api-keys';
 import type { AIProviderType } from '@/lib/ai/models';
 import { createDevModeFetch } from '@/lib/chat/devmode-stream-interceptor';
+import { useRuntimeContext } from '@/hooks/useRuntimeContext';
 
 export function useMessageTransport(conversationId: string | null) {
   const [globalConfig, setGlobalConfig] = useState<GlobalModelConfig | null>(() =>
     getGlobalModelConfig()
   );
+  const { variables: runtimeVariables } = useRuntimeContext();
 
   useEffect(() => {
     const handleConfigChange = () => {
@@ -39,10 +41,11 @@ export function useMessageTransport(conversationId: string | null) {
         conversationId,
         globalModelConfig: globalConfig,
         apiKey,
+        runtimeVariables,
       },
       fetch: createDevModeFetch(conversationId) as any,
     });
-  }, [conversationId, globalConfig]);
+  }, [conversationId, globalConfig, runtimeVariables]);
 
   return { transport, globalConfig };
 }
